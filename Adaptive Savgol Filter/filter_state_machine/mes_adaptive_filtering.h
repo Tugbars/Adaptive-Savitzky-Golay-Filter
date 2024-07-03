@@ -1,8 +1,8 @@
-﻿#ifndef ADAPTIVE_FILTERING_H
+#ifndef ADAPTIVE_FILTERING_H
 #define ADAPTIVE_FILTERING_H
 
 // Preprocessor constants
-#define NOISE_TYPE 'G' //LORENTZIAN
+#define NOISE_TYPE 'G' //GAUSSIAN
 #define LAMBDA 0.5
 #define SIGMA -1
 #define M 5 //MINIMAL WINDOW
@@ -36,9 +36,9 @@ typedef struct {
     int len; // Length of the signal
 } DenoiseContext;
 // Function to encapsulate the initialization and state machine start-up
-void startDenoisingProcess();
-void populate_noisy_sig(const double* dataset, size_t dataSize);
+void startDenoisingProcess(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, size_t len);
 
+void populate_noisy_sig(MqsRawDataPoint_t* noisy_sig, const double* dataset, size_t dataSize);
 #endif // ADAPTIVE_FILTERING_H
 
 /*
