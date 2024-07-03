@@ -11,14 +11,13 @@
 
 #define MAX_SIGNAL_LENGTH 501 //MES SWEEP LENGTH
 
-
 // Enumeration for the states in the denoising process
 typedef enum {
     DEN_STATE_INIT,
     DEN_STATE_FIND_PEAK_RANGE,
     DEN_STATE_EVAL_OPTIMAL_ORDER,
     DEN_STATE_APPLY_FILTER,
-    DEN_STATE_PROCESS_PEAK, // New state for processing peaks
+    DEN_STATE_PROCESS_PEAK, 
     DEN_STATE_DONE,
     DEN_STATE_COUNT // Keep this last to count the states
 } DenState_t;
@@ -35,6 +34,7 @@ typedef struct {
     double best_correlation;
     int len; // Length of the signal
 } DenoiseContext;
+
 // Function to encapsulate the initialization and state machine start-up
 void startDenoisingProcess(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, size_t len);
 
