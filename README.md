@@ -1,2 +1,2 @@
-# adaptive-savgol-filter
-A savgol implementation that applies the most optimal window and order based on the shape and noise level of the peak.
+# Savitzky-Golay Adaptive Filtering Implementation
+This project provides an implementation of the Savitzky-Golay filter that dynamically determines and applies the most optimal window size and polynomial order for denoising signals. The algorithm adapts to the shape and noise level of the peaks in the data based on a user-modifiable threshold. The implementation is designed for high-performance and precision in analyzing noisy signals, making it particularly suitable for finding peaks in noisy impedance curves. It is specifically developed to find one peak in a narrow range of a noisy impedance analyzer output but can easily be modified to find multiple peaks in a larger range.
