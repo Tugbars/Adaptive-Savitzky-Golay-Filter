@@ -40,15 +40,3 @@ void startDenoisingProcess(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoo
 
 void populate_noisy_sig(MqsRawDataPoint_t* noisy_sig, const double* dataset, size_t dataSize);
 #endif // ADAPTIVE_FILTERING_H
-
-/*
-start ve end
-fimnd peak rangeden buluann bir şey
-find peak range de içeride
-find primal peak fonskyinonunu calluyor
-yani bir start ve end
-argument passing gerekli
-
-
-best smoothess ve best correlation da bir yerden başka bir yere passlenmesi gereken bir veri.
-*/
