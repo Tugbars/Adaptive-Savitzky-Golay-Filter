@@ -1,10 +1,12 @@
-﻿#include <stdio.h>
+#include <stdio.h>
 #include "adaptive_order/mes_adaptive_order.h"
 #include "mes_adaptive_filtering.h"
 #include "savitzky_golay_filter/mes_savgol.h"
 #include "filter_state_machine/mes_adaptive_filtering.h"
 #include <windows.h>
 
+MqsRawDataPoint_t noisy_sig[MAX_SIGNAL_LENGTH];
+MqsRawDataPoint_t smoothed_sig[MAX_SIGNAL_LENGTH];
 
 // Function to get the current time in seconds
 double get_time_in_seconds() {
@@ -21,18 +23,17 @@ int main() {
     const size_t dataSize = sizeof(dataset) / sizeof(dataset[0]);
 
     // Populate noisy_sig with example data
-    populate_noisy_sig(dataset, dataSize); //MqsRawDatapoints_t arrayini populateliyor, global olduğu için startDenoisingProcess oradan veriyi okuyup işini yapıyor. 
-    //sweep'e yazıyor mes_sweep.c filter state machine'e sweepi linklersen oradan access verebilirim. 
-
+    populate_noisy_sig(noisy_sig, dataset, dataSize); 
+   
     // Variables to store start and end times
     double start_time, end_time;
 
     // Start timing
     start_time = get_time_in_seconds();
 
-    //mes_peakFinder'ı aktive ederebilirim. 
     // Start the denoising process
-    startDenoisingProcess(); 
+    startDenoisingProcess(noisy_sig, smoothed_sig, dataSize);
+
 
     // Stop timing
     end_time = get_time_in_seconds();
@@ -44,5 +45,3 @@ int main() {
 
     return 0; 
 }
-
-//mes_sweep.c should be bound to the state machine's peak output. 
