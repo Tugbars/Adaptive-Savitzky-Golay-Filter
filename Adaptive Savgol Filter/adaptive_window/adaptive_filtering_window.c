@@ -1,9 +1,12 @@
-#include "mes_savgol.h"
-#include "adaptive_window/adaptive_filtering_window.h"
 #include <stdbool.h>
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#include "../savitzky_golay_filter/mes_savgol.h"
+#include "../adaptive_window/adaptive_filtering_window.h"
+#include "../filter_state_machine/adaptive_filtering_config.h"
+
 
 /*!
  * @brief Calculate the Pearson correlation coefficient for two MqsRawDataPoint_t arrays.
@@ -104,13 +107,11 @@ static void apply_savgol_filter(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_
  * @param best_correlation A pointer to store the best correlation coefficient found.
  * @return The best window size for the Savitzky-Golay filter.
  */
-#define MAX_ITERATIONS ((MAX_WINDOW - MIN_WINDOW) / 2 + 1)
-
+#define MAX_ITERATIONS ((31 - 5) / 2 + 1)
 
 static int find_best_window_size(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, int dataSize, int polyorder, double crit_val, double* best_correlation) {
-    int windowSize = MIN_WINDOW;
-    int best_window_size = MIN_WINDOW;
-
+    int windowSize = g_adaptive_filtering_config.min_window;
+    int best_window_size = g_adaptive_filtering_config.min_window;
 
     double correlations[MAX_ITERATIONS];
     int window_sizes[MAX_ITERATIONS];
@@ -123,7 +124,7 @@ static int find_best_window_size(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint
     //printf("Noisy signal smoothness: %f\n", noisy_smoothness);
 #endif
 
-    while (windowSize <= MAX_WINDOW && iteration < MAX_ITERATIONS) {
+    while (windowSize <= g_adaptive_filtering_config.max_window && iteration < MAX_ITERATIONS) {
         int halfWindowSize = (windowSize - 1) / 2;
 
 #ifdef DEBUG_PRINT
@@ -169,10 +170,9 @@ static int find_best_window_size(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint
  * @param crit_val The critical value for the correlation coefficient.
  */
 int adaptive_savgol_filter(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, int dataSize, int polyorder, double crit_val) {
-    // Combined error checks
-    if (!noisySignal || !smoothedSignal || MIN_WINDOW < 5 || !is_odd(MIN_WINDOW) || dataSize <= 0) {
+    if (!noisySignal || !smoothedSignal || g_adaptive_filtering_config.min_window < 5 || !is_odd(g_adaptive_filtering_config.min_window) || dataSize <= 0) {
         fprintf(stderr, "error\n");
-        return MIN_WINDOW;
+        return g_adaptive_filtering_config.min_window;
     }
 
     double best_correlation;

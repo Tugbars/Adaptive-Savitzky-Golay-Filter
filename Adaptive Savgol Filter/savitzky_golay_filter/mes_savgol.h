@@ -1,7 +1,7 @@
 #ifndef MES_SAVGOL_H
 #define MES_SAVGOL_H
 
-#include "mqs_def.h"
+#include "../mqs_def.h"
 #include <stdlib.h>
 
 #define MAX_ENTRIES 100 // for computing weights for each border case. 

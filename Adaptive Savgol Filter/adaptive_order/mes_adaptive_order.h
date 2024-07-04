@@ -1,10 +1,7 @@
 #ifndef DEN_ORD_REG_H
 #define DEN_ORD_REG_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include "mqs_def.h"
+#include "../mqs_def.h"
 
 #define RANGE_SIZE 5
 #define ORDER_RANGE 5

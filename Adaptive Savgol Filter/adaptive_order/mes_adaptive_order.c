@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
-#include "mes_savgol.h"
+#include "../savitzky_golay_filter/mes_savgol.h"
 #include "mes_adaptive_order.h"
-#include "adaptive_window/adaptive_filtering_window.h"
+#include "../adaptive_window/adaptive_filtering_window.h"
 
 /*
 %%%% Input

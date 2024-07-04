@@ -1,16 +1,14 @@
-#ifndef ADAPTIVE_FILTERING_H
+﻿#ifndef ADAPTIVE_FILTERING_H
 #define ADAPTIVE_FILTERING_H
 
 // Preprocessor constants
 #define NOISE_TYPE 'G' //GAUSSIAN
 #define LAMBDA 0.5
 #define SIGMA -1
-#define M 5 //MINIMAL WINDOW
-#define PMAX 5 //MAX ORDER THAT NEEDS TO BE TESTED. THIS WAS ORIGINALLY 5 AFAIK.
-#define PMIN 3 //MAX ORDER THAT NEEDS TO BE TESTED. THIS WAS ORIGINALLY 5 AFAIK.
-
 #define MAX_SIGNAL_LENGTH 501 //MES SWEEP LENGTH
 
+#include "../mqs_def.h"
+#include "adaptive_filtering_config.h"
 
 // Enumeration for the states in the denoising process
 typedef enum {

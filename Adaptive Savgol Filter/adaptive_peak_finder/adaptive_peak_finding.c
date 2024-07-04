@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include "adaptive_peak_finding.h"
 
+
  /*!
   * @brief Determines if a peak is still climbing at the end of a dataset.
   *
@@ -507,7 +508,7 @@ bool processPeak(MqsRawDataPoint_t a[], int size, uint16_t* peakIndex, bool* isE
 
 #ifdef DEBUG_PRINT
         printf("Peak found at index: %d\n", *peakIndex);
-        printf("Peak magnitude: %f\n", peak_magnitude);
+        printf("Peak magnitude: %f\n", peak_magnitude); 
 #endif
     }
     else {

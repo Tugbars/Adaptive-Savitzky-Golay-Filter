@@ -1,7 +1,7 @@
 #ifndef PEAK_DETECTION_H
 #define PEAK_DETECTION_H
 
-#include "mqs_def.h"
+#include "../mqs_def.h"
 #include <stdbool.h>
 
 

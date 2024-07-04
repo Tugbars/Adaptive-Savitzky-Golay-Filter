@@ -15,10 +15,13 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
-#include "savitzky_golay_filter/mes_savgol.h"
-#include "adaptive_order/mes_adaptive_order.h"
-#include "adaptive_window/adaptive_filtering_window.h"
-#include "filter_state_machine/mes_adaptive_filtering.h"
+
+#include "../savitzky_golay_filter/mes_savgol.h"
+#include "../adaptive_window/adaptive_filtering_window.h"
+#include "../adaptive_order/mes_adaptive_order.h"
+#include "mes_adaptive_filtering.h"
+#include "adaptive_filtering_config.h"
+#include "../adaptive_peak_finder/adaptive_peak_finding.h"
 
 DenoiseContext ctx;
 
@@ -174,7 +177,7 @@ void onEntryEvalOptimalOrder(DenoiseContext* ctx, MqsRawDataPoint_t* noisy_sig, 
 
     evaluate_optimal_order_for_all_indexes(
         noisy_sig, smoothed_sig, ctx->start, ctx->end,
-        ctx->len, ctx->sigma, LAMBDA, PMIN, PMAX,
+        ctx->len, ctx->sigma, LAMBDA, g_adaptive_filtering_config.pmin, g_adaptive_filtering_config.pmax,
         GUE_MSE, optimal_order_windows
     );
 
