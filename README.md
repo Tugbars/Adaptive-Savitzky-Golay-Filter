@@ -19,3 +19,6 @@ The system includes hardcoded thresholds that the user can modify for their need
 
 ## Example Usage:
 The implementation is particularly suitable for high-performance and precision analysis of noisy signals, especially in the context of finding peaks in noisy impedance curves. It was specifically developed to find a peak in expectation of having only one peak but can be adapted for multiple peaks.
+
+## Output example: 
+![image](https://github.com/Tugbars/Adaptive-Savitzky-Golay-Filter/assets/23309063/211370bb-08bb-4286-9fce-f36c64a29dbf)
