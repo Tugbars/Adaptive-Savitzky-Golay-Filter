@@ -81,14 +81,12 @@ static DenState_t NextState(DenoiseContext* ctx) {
     case DEN_STATE_PROCESS_PEAK:
         return DEN_STATE_DONE;
     case DEN_STATE_DONE:
-        // Handle the final state if needed
         break;
     default:
         return DEN_STATE_DONE; // Default to DONE to end the state machine
     }
     return DEN_STATE_DONE;
 }
-
 
 /**
  * @brief Processes state changes in the denoising state machine.
@@ -117,7 +115,9 @@ static void ProcessStateChange(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* 
 
     // Call the callback function when the state machine is done
     if (ctx.current_state == DEN_STATE_DONE && ctx.callback) {
-        ctx.callback();
+        void (*doneCallback)(void) = ctx.callback; // Copy the callback pointer
+        ctx.callback = NULL; // Clear the callback to prevent re-entry
+        doneCallback();
     }
 }
 
@@ -214,7 +214,6 @@ void onExitEvalOptimalOrder(DenoiseContext* ctx, MqsRawDataPoint_t* noisy_sig, M
 void onEntryApplyFilter(DenoiseContext* ctx, MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig) {
     apply_optimal_filter(noisy_sig, smoothed_sig, ctx->len, ctx->best_order, ctx->best_window);
 
-    // The denoised array is not needed as per your instructions
     ProcessStateChange(noisy_sig, smoothed_sig);
 }
 
@@ -228,7 +227,6 @@ void onExitApplyFilter(DenoiseContext* ctx, MqsRawDataPoint_t* noisy_sig, MqsRaw
  * @param ctx Pointer to the DenoiseContext structure.
  */
 void onEntryProcessPeak(DenoiseContext* ctx, MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig) {
-    //printf("Entering ProcessPeak State\n");
 
     uint16_t peakIndex;
     bool isEdgeCase;
