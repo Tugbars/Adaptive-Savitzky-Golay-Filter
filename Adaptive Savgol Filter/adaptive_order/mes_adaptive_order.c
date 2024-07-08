@@ -186,13 +186,13 @@ void find_peak_range(MqsRawDataPoint_t* noisy_sig, int len, int* start, int* end
  * @param optimal_window Pointer to store the optimal window size for the current order.
  */
 void calculate_gue_mse_for_order(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, int start, int end, int len, double sigma, double lambda, double* temp_gue_mse, double GUE_MSE[RANGE_SIZE][ORDER_RANGE], int p, int* optimal_window) {
-    int window_size = adaptive_savgol_filter(noisy_sig, smoothed_sig, len, p, 0.99);
+    int window_size = adaptive_savgol_filter(noisy_sig, smoothed_sig, len, p, CORRELATION_THRESHOLD);
     calculate_gue_mse(&noisy_sig[start], &smoothed_sig[start], end - start + 1, sigma, lambda, temp_gue_mse);
 
     for (int i = start; i <= end; i++) {
-        GUE_MSE[i - start][p - 3] = temp_gue_mse[i - start];
+        GUE_MSE[i - start][p - g_adaptive_filtering_config.pmin] = temp_gue_mse[i - start];
 #ifdef DEBUG_PRINT
-        printf("GUE_MSE[%d][%d] = %f (window size = %d)\n", i - start, p - 3, GUE_MSE[i - start][p - 3], window_size);
+        printf("GUE_MSE[%d][%d] = %f (window size = %d)\n", i - start, p - g_adaptive_filtering_config.pmin, GUE_MSE[i - start][p - g_adaptive_filtering_config.pmin], window_size);
 #endif
     }
 
@@ -232,8 +232,8 @@ void evaluate_optimal_order_for_all_indexes(MqsRawDataPoint_t* noisy_sig, MqsRaw
 #endif
             int optimal_window;
             calculate_gue_mse_for_order(noisy_sig, smoothed_sig, start, end, len, sigma, lambda, GUE_MSE[i - start], GUE_MSE, p, &optimal_window);
-            if (GUE_MSE[i - start][p - 3] < min_gue_mse) {
-                min_gue_mse = GUE_MSE[i - start][p - 3];
+            if (GUE_MSE[i - start][p - pmin] < min_gue_mse) {
+                min_gue_mse = GUE_MSE[i - start][p - pmin];
                 best_order = p;
                 best_window = optimal_window;
             }
@@ -243,7 +243,6 @@ void evaluate_optimal_order_for_all_indexes(MqsRawDataPoint_t* noisy_sig, MqsRaw
         optimal_order_windows[real_index].optimal_order = best_order;
         optimal_order_windows[real_index].optimal_window = best_window;
 #ifdef DEBUG_PRINT
-        // printf("real order/window Index i %d\n", real_index);
         printf("Index %d: Optimal Order = %d, Optimal Window = %d\n", i, best_order, best_window);
 #endif
     }
@@ -272,7 +271,6 @@ void apply_optimal_filter_with_cache(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoi
     double best_smoothness_found = INFINITY;
     double best_correlation_found = 0.0;
 
-    // Extract unique combinations
     int unique_count = 0;
 
     for (int i = start; i <= end; ++i) {
@@ -290,7 +288,6 @@ void apply_optimal_filter_with_cache(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoi
         }
     }
 
-    // Evaluate each unique combination
     for (int i = 0; i < unique_count; ++i) {
         int current_order = cache[i].order;
         int current_window = cache[i].window;
@@ -300,10 +297,11 @@ void apply_optimal_filter_with_cache(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoi
         cache[i].smoothness = calculate_smoothness(smoothed_sig, len);
         cache[i].correlation = calculate_correlation(noisy_sig, smoothed_sig, len);
 
-        //printf("Order %d: Window = %d, smoothness = %f, correlation = %f\n", current_order, current_window, cache[i].smoothness, cache[i].correlation);
+#ifdef DEBUG_PRINT
+        printf("Order %d: Window = %d, smoothness = %f, correlation = %f\n", current_order, current_window, cache[i].smoothness, cache[i].correlation);
+#endif
     }
 
-    // Find the best combination based on smoothness and correlation criteria
     for (int i = 0; i < unique_count; ++i) {
         double smoothness = cache[i].smoothness;
         double correlation = cache[i].correlation;
@@ -323,8 +321,24 @@ void apply_optimal_filter_with_cache(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoi
     *best_smoothness = best_smoothness_found;
     *best_correlation = best_correlation_found;
 
-    printf("Best Smoothness: %f for Order %d and Window %d\n", best_smoothness_found, *best_order, *best_window);
-    printf("Best Correlation: %f for Order %d and Window %d\n", best_correlation_found, *best_order, *best_window);
+    if (*best_correlation < CORRELATION_THRESHOLD) {
+        *best_correlation = cache[0].correlation;
+        *best_smoothness = cache[0].smoothness;
+        *best_order = cache[0].order;
+        *best_window = cache[0].window;
+
+        for (int i = 1; i < unique_count; ++i) {
+            if (cache[i].correlation > *best_correlation) {
+                *best_correlation = cache[i].correlation;
+                *best_smoothness = cache[i].smoothness;
+                *best_order = cache[i].order;
+                *best_window = cache[i].window;
+            }
+        }
+    }
+
+    printf("Best Smoothness: %f for Order %d and Window %d\n", *best_smoothness, *best_order, *best_window);
+    printf("Best Correlation: %f for Order %d and Window %d\n", *best_correlation, *best_order, *best_window);
 }
 
 /**
@@ -345,7 +359,7 @@ void apply_optimal_filter(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoot
 
 // denoise function using smoothed_sig directly
 void den_ord_reg(int M, int pmax, MqsRawDataPoint_t* noisy_sig, int len, char type, double lambda, double sigma, MqsRawDataPoint_t* smoothed_sig, double GUE_MSE[RANGE_SIZE][ORDER_RANGE], OptimalOrderWindow* optimal_order_windows, double* best_smoothness, double* best_correlation) {
-    int pmin = 3;
+    int pmin = g_adaptive_filtering_config.pmin;
 
     if (sigma == -1) {
         sigma = calculate_sigma(noisy_sig, len, type);
@@ -365,7 +379,6 @@ void den_ord_reg(int M, int pmax, MqsRawDataPoint_t* noisy_sig, int len, char ty
     int best_order, best_window;
     apply_optimal_filter_with_cache(noisy_sig, smoothed_sig, len, start, end, optimal_order_windows, best_smoothness, best_correlation, &best_order, &best_window);
 
-    // Apply the filter with the best order and window
     apply_optimal_filter(noisy_sig, smoothed_sig, len, best_order, best_window);
 }
 
