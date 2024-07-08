@@ -114,8 +114,8 @@ static int find_best_window_size(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint
     int windowSize = g_adaptive_filtering_config.min_window;
     int best_window_size = g_adaptive_filtering_config.min_window;
 
-    double correlations[MAX_ITERATIONS];
-    int window_sizes[MAX_ITERATIONS];
+    double correlations[MAX_ITERATIONS] = { 0 };
+    int window_sizes[MAX_ITERATIONS] = { 0 };
 
     *best_correlation = -1;
     int iteration = 0;
