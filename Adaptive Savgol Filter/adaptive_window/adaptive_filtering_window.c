@@ -107,7 +107,8 @@ static void apply_savgol_filter(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_
  * @param best_correlation A pointer to store the best correlation coefficient found.
  * @return The best window size for the Savitzky-Golay filter.
  */
-#define MAX_ITERATIONS ((31 - 5) / 2 + 1)
+
+#define MAX_ITERATIONS ((MAX_WINDOW - MIN_WINDOW) / 2 + 1)
 
 static int find_best_window_size(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, int dataSize, int polyorder, double crit_val, double* best_correlation) {
     int windowSize = g_adaptive_filtering_config.min_window;
@@ -121,20 +122,20 @@ static int find_best_window_size(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint
 
     double noisy_smoothness = calculate_smoothness(noisySignal, dataSize);
 #ifdef DEBUG_PRINT
-    //printf("Noisy signal smoothness: %f\n", noisy_smoothness);
+    printf("Noisy signal smoothness: %f\n", noisy_smoothness);
 #endif
 
     while (windowSize <= g_adaptive_filtering_config.max_window && iteration < MAX_ITERATIONS) {
         int halfWindowSize = (windowSize - 1) / 2;
 
 #ifdef DEBUG_PRINT
-        //printf("Testing window size: %d halfWindowSize %d\n", windowSize, halfWindowSize);
+        printf("Testing window size: %d halfWindowSize %d\n", windowSize, halfWindowSize);
 #endif
         apply_savgol_filter(noisySignal, smoothedSignal, dataSize, halfWindowSize, polyorder);
 
         double correlation = calculate_correlation(noisySignal, smoothedSignal, dataSize);
 #ifdef DEBUG_PRINT
-        //printf("correlation %f\n", correlation);
+        printf("correlation %f\n", correlation);
 #endif
         double smoothed_smoothness = calculate_smoothness(smoothedSignal, dataSize);
 #ifdef DEBUG_PRINT
@@ -146,12 +147,28 @@ static int find_best_window_size(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint
         if (correlation > *best_correlation && fabs(correlation) > crit_val && smoothed_smoothness < SMOOTHNESS_THRESHOLD) {
             *best_correlation = correlation;
             best_window_size = windowSize;
-            break;
         }
 
         windowSize += 2;
         iteration++;
     }
+
+    // If no suitable window size is found within the thresholds, select the best available one
+    if (*best_correlation < crit_val) {
+        *best_correlation = correlations[0];
+        best_window_size = window_sizes[0];
+
+        for (int i = 1; i < iteration; ++i) {
+            if (correlations[i] > *best_correlation) {
+                *best_correlation = correlations[i];
+                best_window_size = window_sizes[i];
+            }
+        }
+    }
+
+#ifdef DEBUG_PRINT
+    printf("Selected window size: %d\n", best_window_size);
+#endif
 
     return best_window_size;
 }
