@@ -24,7 +24,29 @@ The system includes hardcoded thresholds that the user can modify for their need
 - The algorithm is designed to return the most optimal parameters if the smoothness and correlation thresholds are not met within the defined min-max window and order interval.
 
 ## Example Usage:
-The implementation is particularly suitable for high-performance and precision analysis of noisy signals, especially in the context of finding peaks in noisy impedance curves. It was specifically developed to find a peak in expectation of having only one peak but can be adapted for multiple peaks.
+The implementation is particularly suitable for high-performance and precision analysis of noisy signals, especially in the context of finding peaks in noisy impedance curves. It was specifically developed to find a peak in expectation of having only one peak but can be adapted for process all the peaks in a given dataset. 
+```
+**Set your callback function, which will be called when the denoising process is completed.**
+static void denoisingFinishedCallback(void) {
+    //add your callback feature here. 
+}
+
+int main() {
+    const double dataset[] = { /* insert your data here */ };
+    const double dataset2[] = { /* insert your data here */ };
+
+    const size_t dataSize = sizeof(dataset) / sizeof(dataset[0]);
+    populate_noisy_sig(noisy_sig, dataset, dataSize); 
+
+    **set the min and max order/window here.**
+    initialize_adaptive_filtering_config(MIN_WINDOW, MAX_WINDOW, 3, 5); 
+
+    **start the denoising state machine.**
+    startDenoisingProcess(rawData->data, filterData->data, 360, denoisingFinishedCallback);
+
+    return 0; 
+}
+```
 
 ## Output example: 
 ![image](https://github.com/Tugbars/Adaptive-Savitzky-Golay-Filter/assets/23309063/211370bb-08bb-4286-9fce-f36c64a29dbf)
