@@ -1,6 +1,6 @@
 # Savitzky-Golay Adaptive Filtering Implementation
 
-This project provides an implementation of the Savitzky-Golay filter that dynamically determines and applies the most optimal window size and polynomial order for denoising signals. The algorithm adapts to the shape and noise level of the peaks in the data based on a user-modifiable threshold. The implementation is designed for high-performance and precision in analyzing noisy signals, making it particularly suitable for finding peaks in noisy impedance curves.
+This project provides an implementation of the Savitzky-Golay filter that dynamically determines and applies the most optimal window size and polynomial order for denoising signals. The algorithm adapts to the shape and noise level of the peaks in the data based on a user-modifiable threshold. The implementation is designed for high-performance and precision in analyzing noisy signals, making it particularly suitable for finding peaks in noisy impedance curves. This code is developed to smoothen the impedance curves enough that small noise spikes can't influence finding the peak with the largest width in a given signal.
 
 ## Key Features:
 
@@ -14,8 +14,13 @@ The system includes hardcoded thresholds that the user can modify for their need
 
 - **Smoothness Threshold:** Defined by `SMOOTHNESS_THRESHOLD` (default `1.1`). A lower value indicates less noise in the signal.
 - **Correlation Threshold:** Defined by `CORRELATION_THRESHOLD` (default `0.99`). A value of `1.0` indicates a perfectly aligned smoothed signal compared to the actual noisy signal.
-- **Min and Max Window Sizes:** Defined by `MIN_WINDOW` (default `5`) and `MAX_WINDOW` (default `31`). These values set the range for the window size in the Savitzky-Golay filter.
-- **Min and Max Polynomial Orders:** These values can be initialized by the user to set the range for the polynomial order in the Savitzky-Golay filter.
+- **Min and Max Window Sizes: These values set the range for the window size in the Savitzky-Golay filter and are defined during the initialization of the adaptive filtering configuration. Example setup:
+  ```initialize_adaptive_filtering_config(MIN_WINDOW, MAX_WINDOW, MIN_ORDER, MAX_ORDER);```
+
+- Min and Max Polynomial Orders: Similarly, the range for the polynomial order in the Savitzky-Golay filter is defined during initialization. Example setup:
+```initialize_adaptive_filtering_config(5, 31, MIN_ORDER, MAX_ORDER);```
+
+- The algorithm is designed to return the most optimal parameters if the smoothness and correlation thresholds are not met within the defined min-max window and order interval.
 
 ## Example Usage:
 The implementation is particularly suitable for high-performance and precision analysis of noisy signals, especially in the context of finding peaks in noisy impedance curves. It was specifically developed to find a peak in expectation of having only one peak but can be adapted for multiple peaks.
