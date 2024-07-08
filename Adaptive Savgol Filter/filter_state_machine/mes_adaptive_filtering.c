@@ -16,12 +16,12 @@
 #include <math.h>
 #include <stdbool.h>
 
-#include "../savitzky_golay_filter/mes_savgol.h"
-#include "../adaptive_window/adaptive_filtering_window.h"
-#include "../adaptive_order/mes_adaptive_order.h"
+#include "mes_savgol.h"
+#include "adaptive_filtering_window.h"
+#include "mes_adaptive_order.h"
 #include "mes_adaptive_filtering.h"
 #include "adaptive_filtering_config.h"
-#include "../adaptive_peak_finder/adaptive_peak_finding.h"
+#include "adaptive_peak_finding.h"
 
 DenoiseContext ctx;
 
@@ -63,32 +63,6 @@ static const StateFuncs_t STATE_FUNCS[DEN_STATE_COUNT] = {
 };
 
 /**
- * @brief Processes state changes in the denoising state machine.
- *
- * This function handles the transition between states in the denoising process.
- * It ensures that the appropriate entry and exit functions are called for each state transition.
- */
-static void ProcessStateChange(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig) {
-    bool isChanged;
-    do {
-        const DenState_t next = NextState(&ctx);
-        isChanged = (next != ctx.current_state);
-
-        if (isChanged) {
-            if (STATE_FUNCS[ctx.current_state].onExit) {
-                STATE_FUNCS[ctx.current_state].onExit(&ctx, noisy_sig, smoothed_sig);
-            }
-
-            ctx.current_state = next;
-
-            if (STATE_FUNCS[ctx.current_state].onEntry) {
-                STATE_FUNCS[ctx.current_state].onEntry(&ctx, noisy_sig, smoothed_sig);
-            }
-        }
-    } while (isChanged);
-}
-
-/**
  * @brief Determines the next state in the denoising state machine.
  *
  * @param ctx Pointer to the DenoiseContext structure.
@@ -115,12 +89,44 @@ static DenState_t NextState(DenoiseContext* ctx) {
     return DEN_STATE_DONE;
 }
 
+
+/**
+ * @brief Processes state changes in the denoising state machine.
+ *
+ * This function handles the transition between states in the denoising process.
+ * It ensures that the appropriate entry and exit functions are called for each state transition.
+ */
+static void ProcessStateChange(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig) {
+    bool isChanged;
+    do {
+        const DenState_t next = NextState(&ctx);
+        isChanged = (next != ctx.current_state);
+
+        if (isChanged) {
+            if (STATE_FUNCS[ctx.current_state].onExit) {
+                STATE_FUNCS[ctx.current_state].onExit(&ctx, noisy_sig, smoothed_sig);
+            }
+
+            ctx.current_state = next;
+
+            if (STATE_FUNCS[ctx.current_state].onEntry) {
+                STATE_FUNCS[ctx.current_state].onEntry(&ctx, noisy_sig, smoothed_sig);
+            }
+        }
+    } while (isChanged);
+
+    // Call the callback function when the state machine is done
+    if (ctx.current_state == DEN_STATE_DONE && ctx.callback) {
+        ctx.callback();
+    }
+}
+
 /**
  * @brief Starts the denoising process.
  *
  * This function initializes the DenoiseContext structure and begins the state machine process.
  */
-void startDenoisingProcess(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, size_t len) {
+void startDenoisingProcess(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, size_t len, void (*callback)(void)) {
     ctx = (DenoiseContext){
         .current_state = DEN_STATE_INIT,
         .sigma = -1,
@@ -130,7 +136,8 @@ void startDenoisingProcess(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoo
         .end = 0,
         .best_order = 0,
         .best_window = 0,
-        .len = len // use the provided length
+        .len = len,
+        .callback = callback  // Store the callback function in the context
     };
 
     ProcessStateChange(noisy_sig, smoothed_sig);
