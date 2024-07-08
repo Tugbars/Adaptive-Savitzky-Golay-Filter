@@ -6,9 +6,9 @@ This project provides an implementation of the Savitzky-Golay filter that dynami
 
 - **Optimal Window Selection:** Utilizes smoothness and Pearson correlation coefficient to determine the optimal window size for filtering.
 - **Optimal Order Selection:** Uses Generalized Unbiased Estimate of Mean Squared Error (GUE-MSE) to find the optimal polynomial order.
-- **Peak Detection:** Specifically developed to find one peak in a narrow range of a noisy impedance analyzer output but can easily be modified to find multiple peaks in full range of the dataset. The algorithm first identifies a primary peak and then evaluates potential peaks around it, considering the local mean and standard deviation. 
+- **Peak Detection:** Specifically developed to find one peak in a narrow range of a noisy impedance analyzer output but can easily be modified to find multiple peaks in full range of the dataset. The algorithm first identifies a primary peak and then evaluates potential peaks around it, considering the local mean and standard deviation. Peak detection algorithm also calculates FWHM(%10 + %50) and prominence of the peak with the consideration of the local shape factor around the peak. 
 - **State Machine Architecture:** Utilizes a state machine for better scalability and to allow for future feedback-based recursive search for the optimal window and order.
-- **Industry Standard accuracy:** The output of the code matches with the MATLAB's output. 
+- **Industry Standard Accuracy:** The output of the code matches with the MATLAB's output. 
 
 ## User-Modifiable Thresholds:
 The system includes hardcoded thresholds that the user can modify for their needs:
