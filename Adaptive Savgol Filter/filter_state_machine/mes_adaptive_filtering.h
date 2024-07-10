@@ -1,4 +1,4 @@
-#ifndef ADAPTIVE_FILTERING_H
+﻿#ifndef ADAPTIVE_FILTERING_H
 #define ADAPTIVE_FILTERING_H
 
 // Preprocessor constants
@@ -36,6 +36,7 @@ typedef struct {
 } DenoiseContext;
 // Function to encapsulate the initialization and state machine start-up
 void startDenoisingProcess(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, size_t len, void (*callback)(void));
+
 
 void populate_noisy_sig(MqsRawDataPoint_t* noisy_sig, const double* dataset, size_t dataSize);
 #endif // ADAPTIVE_FILTERING_H

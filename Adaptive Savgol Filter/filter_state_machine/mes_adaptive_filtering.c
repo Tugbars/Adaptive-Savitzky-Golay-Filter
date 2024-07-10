@@ -117,7 +117,9 @@ static void ProcessStateChange(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* 
 
     // Call the callback function when the state machine is done
     if (ctx.current_state == DEN_STATE_DONE && ctx.callback) {
-        ctx.callback();
+        void (*doneCallback)(void) = ctx.callback; // Copy the callback pointer
+        ctx.callback = NULL; // Clear the callback to prevent re-entry
+        doneCallback();
     }
 }
 
@@ -187,6 +189,13 @@ void onEntryEvalOptimalOrder(DenoiseContext* ctx, MqsRawDataPoint_t* noisy_sig, 
         ctx->len, ctx->sigma, LAMBDA, g_adaptive_filtering_config.pmin, g_adaptive_filtering_config.pmax,
         GUE_MSE, optimal_order_windows
     );
+
+    // Print the optimal_order_windows items
+    printf("Optimal Order Windows:\n");
+    for (int i = 0; i < MAX_RANGE_SIZE; i++) {
+        printf("Index %d: Optimal Order = %d, Optimal Window = %d\n",
+            i, optimal_order_windows[i].optimal_order, optimal_order_windows[i].optimal_window);
+    }
 
     apply_optimal_filter_with_cache(
         noisy_sig, smoothed_sig, ctx->len, ctx->start, ctx->end,
@@ -261,3 +270,5 @@ void populate_noisy_sig(MqsRawDataPoint_t* noisy_sig, const double* dataset, siz
         noisy_sig[i].impedance = 0.0;  // Set the impedance to a default value
     }
 }
+
+

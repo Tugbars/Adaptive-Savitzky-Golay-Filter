@@ -7,7 +7,6 @@
 #define SMOOTHNESS_THRESHOLD 1.1
 #define CORRELATION_THRESHOLD 0.99
 
-
 // Adaptive Savitzky-Golay filter function
 int adaptive_savgol_filter(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, int dataSize, int polyorder, double crit_val);
 double calculate_smoothness(const MqsRawDataPoint_t* data, int n);

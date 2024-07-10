@@ -4,7 +4,7 @@
 #include "../mqs_def.h"
 #include <stdlib.h>
 
-#define MAX_ENTRIES 100 // for computing weights for each border case. 
+#define MAX_ENTRIES 180 // for computing weights for each border case. 
 
 // Define a structure to hold the memoization table and other related data
 typedef struct {

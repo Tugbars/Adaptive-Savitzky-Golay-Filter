@@ -15,8 +15,10 @@
 #include <math.h>
 #include <stdbool.h>
 #include "mes_savgol.h"
+#include "../adaptive_window/adaptive_filtering_window.h"
 
-//int gramPolyCallCount = 0;
+ // Global counter for GramPoly calls
+int gramPolyCallCount = 0;
 
 // global values to minimize the stack footprint of GramPoly
 int g_dataIndex;
@@ -109,6 +111,10 @@ static inline float GenFact(uint8_t upperLimit, uint8_t termCount) {
  * @return The value of the Gram Polynomial or its specified derivative at the given index.
  */
 static float GramPoly(uint8_t polynomialOrder, MemoizationContext* context) {
+
+    // Increment the global counter
+    gramPolyCallCount++;
+
     // Use global variables within the function
     uint8_t halfWindowSize = g_halfWindowSize;
     uint8_t derivativeOrder = g_derivativeOrder;
@@ -283,10 +289,19 @@ static void ComputeWeights(uint8_t halfWindowSize, uint16_t targetPoint, uint8_t
  * @param filteredData The array where the filtered data points will be stored.
  */
 static void ApplyFilter(MqsRawDataPoint_t data[], size_t dataSize, uint8_t halfWindowSize, uint16_t targetPoint, SavitzkyGolayFilter filter, MqsRawDataPoint_t filteredData[], MemoizationContext* context) {
+    // Calculate the maximum allowed halfWindowSize
+    uint8_t maxHalfWindowSize = (MAX_WINDOW - 1) / 2;
+
+    // Check if halfWindowSize exceeds the maximum allowed value
+    if (halfWindowSize > maxHalfWindowSize) {
+        printf("Warning: halfWindowSize (%d) exceeds the maximum allowed value (%d). Adjusting halfWindowSize to the maximum allowed value.\n", halfWindowSize, maxHalfWindowSize);
+        halfWindowSize = maxHalfWindowSize;
+    }
+
     const int window = 2 * halfWindowSize + 1;  // Full window size
     const int endidx = dataSize - 1;
     uint8_t width = halfWindowSize;
-    static float weights[31];  // Static array to hold weights, assuming max window size is 31
+    static float weights[MAX_WINDOW];  // Static array to hold weights, assuming max window size is MAX_WINDOW
 
     // Compute central case weights once and store them in static array
     ComputeWeights(halfWindowSize, targetPoint, filter.conf.polynomialOrder, filter.conf.derivativeOrder, weights, 1, context);
@@ -450,8 +465,13 @@ SavitzkyGolayFilter* getFilterInstance(uint8_t halfWindowSize, uint8_t polynomia
 void mes_savgolFilter(MqsRawDataPoint_t data[], size_t dataSize, uint8_t halfWindowSize, MqsRawDataPoint_t filteredData[], uint8_t polynomialOrder, uint8_t targetPoint, uint8_t derivativeOrder) {
     MemoizationContext context;
     initializeMemoizationTable(&context);
+    gramPolyCallCount = 0;
+    //printf("GramPoly call count before applying filter: %d\n", gramPolyCallCount);
 
     SavitzkyGolayFilter* filter = getFilterInstance(halfWindowSize, polynomialOrder, targetPoint, derivativeOrder, false, &context);
 
     ApplyFilter(data, dataSize, halfWindowSize, targetPoint, *filter, filteredData, &context);
+
+    //printf("GramPoly call count after applying filter: %d\n", gramPolyCallCount);
+
 }

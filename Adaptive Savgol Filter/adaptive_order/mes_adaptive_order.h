@@ -4,7 +4,7 @@
 #include "../mqs_def.h"
 
 #define RANGE_SIZE 5
-#define ORDER_RANGE 5
+#define ORDER_RANGE 5 //each peaks in the range will have their own orders, so GUE_MSE is GUE_MSE[RANGE_SIZE][ORDER_RANGE]
 
 typedef struct {
     int optimal_order;

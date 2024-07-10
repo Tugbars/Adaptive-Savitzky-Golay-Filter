@@ -192,7 +192,9 @@ static inline void calculate_local_stats(const MqsRawDataPoint_t* signal, int le
  * @param peaks Array to store the detected peak indices.
  * @param num_peaks Pointer to store the number of detected peaks.
  */
-static void adaptive_gradient_find_peaks(const MqsRawDataPoint_t* restrict signal, int length, int start, int end, int window_size, int* restrict peaks, int* restrict num_peaks) {
+
+//restrict is not the way to go here. 
+static void adaptive_gradient_find_peaks(const MqsRawDataPoint_t* signal, int length, int start, int end, int window_size, int* restrict peaks, int* restrict num_peaks) {
     // Define array sizes based on PEAK_DETECTION_WINDOW_SIZE
     double dY[PEAK_DETECTION_WINDOW_SIZE - 2] = { 0 };
     int S[PEAK_DETECTION_WINDOW_SIZE - 2] = { 0 };
@@ -494,6 +496,10 @@ static bool detect_peak_with_width(const MqsRawDataPoint_t* signal, int length, 
  */
 bool processPeak(MqsRawDataPoint_t a[], int size, uint16_t* peakIndex, bool* isEdgeCase) {
     int peak_range = PEAK_DETECTION_WINDOW_SIZE;  // Example range
+
+    for (int i = 0; i < size; i++) {
+        printf(" %f,", a[i].phaseAngle);
+    }
 
     bool result = detect_peak_with_width(a, size, peak_range, peakIndex);
 
