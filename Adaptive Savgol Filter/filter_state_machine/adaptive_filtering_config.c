@@ -32,7 +32,7 @@ static int validate_and_adjust_config(int* min_window, int* max_window, int* pmi
 
 void initialize_adaptive_filtering_config(int min_window, int max_window, int pmin, int pmax) {
     if (!validate_and_adjust_config(&min_window, &max_window, &pmin, &pmax)) {
-        printf("Error: Invalid configuration provided.\n");
+        //printf("Error: Invalid configuration provided.\n");
         return;
     }
 

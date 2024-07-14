@@ -194,7 +194,7 @@ static inline void calculate_local_stats(const MqsRawDataPoint_t* signal, int le
  */
 
 //restrict is not the way to go here. 
-static void adaptive_gradient_find_peaks(const MqsRawDataPoint_t* signal, int length, int start, int end, int window_size, int* restrict peaks, int* restrict num_peaks) {
+static void adaptive_gradient_find_peaks(const MqsRawDataPoint_t* signal, int length, int start, int end, int window_size, int*  peaks, int* num_peaks) {
     // Define array sizes based on PEAK_DETECTION_WINDOW_SIZE
     double dY[PEAK_DETECTION_WINDOW_SIZE - 2] = { 0 };
     int S[PEAK_DETECTION_WINDOW_SIZE - 2] = { 0 };
@@ -257,7 +257,7 @@ static void adaptive_gradient_find_peaks(const MqsRawDataPoint_t* signal, int le
  * @param widths Array to store the computed widths of the peaks.
  * @param length The length of the input signal array.
  */
-static void calculate_peak_widths(const MqsRawDataPoint_t* restrict signal, const int* restrict peaks, int num_peaks, double* restrict widths, int length) {
+static void calculate_peak_widths(const MqsRawDataPoint_t* signal, const int* peaks, int num_peaks, double* widths, int length) {
     for (int i = 0; i < num_peaks; i++) {
         int peak = peaks[i];
         double peak_height = signal[peak].phaseAngle;
@@ -294,7 +294,7 @@ static void calculate_peak_widths(const MqsRawDataPoint_t* restrict signal, cons
  * @param peakIndex The index of the peak for which to calculate prominence.
  * @return The computed prominence of the peak.
  */
-static double find_prominence(const MqsRawDataPoint_t* restrict signal, int length, int peakIndex) { //no boundary problem 
+static double find_prominence(const MqsRawDataPoint_t* signal, int length, int peakIndex) { //no boundary problem 
     int leftBoundary = 0;
     int rightBoundary = length - 1;
     double peak_val = signal[peakIndex].phaseAngle;
@@ -343,7 +343,7 @@ static double find_prominence(const MqsRawDataPoint_t* restrict signal, int leng
  * @param prominences Array to store the computed prominences of the peaks.
  * @param length The length of the input signal array.
  */
-static void calculate_peak_prominences(const MqsRawDataPoint_t* restrict signal, const int* restrict peaks, int num_peaks, double* restrict prominences, int length) {
+static void calculate_peak_prominences(const MqsRawDataPoint_t* signal, const int* peaks, int num_peaks, double* prominences, int length) {
     for (int i = 0; i < num_peaks; i++) {
         prominences[i] = find_prominence(signal, length, peaks[i]);
     }
@@ -359,7 +359,7 @@ static void calculate_peak_prominences(const MqsRawDataPoint_t* restrict signal,
  * @param length The length of the input signal array.
  * @return The index of the primary peak.
  */
-uint16_t find_primary_peak(const MqsRawDataPoint_t* signal, int length) {
+static uint16_t find_primary_peak(const MqsRawDataPoint_t* signal, int length) {
     uint16_t primary_peak = 0;
     float peak_value = findPeakRec(signal, length, 0, length - 1, &primary_peak);
 #ifdef DEBUG_PRINT
