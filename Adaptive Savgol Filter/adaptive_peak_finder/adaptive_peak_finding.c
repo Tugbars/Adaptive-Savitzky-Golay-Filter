@@ -415,7 +415,7 @@ static bool find_widest_peak(const MqsRawDataPoint_t* signal, int length, int* p
 
     double* prominences = (double*)malloc(num_peaks * sizeof(double));
     if (!prominences) {
-        fprintf(stderr, "Memory allocation failed\n");
+        //fprintf(stderr, "Memory allocation failed\n");
         return false;
     }
 
@@ -497,10 +497,11 @@ static bool detect_peak_with_width(const MqsRawDataPoint_t* signal, int length, 
 bool processPeak(MqsRawDataPoint_t a[], int size, uint16_t* peakIndex, bool* isEdgeCase) {
     int peak_range = PEAK_DETECTION_WINDOW_SIZE;  // Example range
 
+    /*
     for (int i = 0; i < size; i++) {
         printf(" %f,", a[i].phaseAngle);
     }
-
+    */
     bool result = detect_peak_with_width(a, size, peak_range, peakIndex);
 
     // Check if peak is near the end and potentially still climaxing

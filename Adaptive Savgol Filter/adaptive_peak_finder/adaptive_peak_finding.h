@@ -25,7 +25,7 @@
   * (climax) within the dataset's interval. This threshold value determines how close to the
   * end of the dataset a peak must be to be considered an edge case. It is used to decide
   * whether to check if a peak is still climbing or if it may continue in a subsequent dataset.
-  */
+  */	
 #define PEAK_THRESHOLD  30 
 
 #define PROMINENCE_THRESHOLD 9.0

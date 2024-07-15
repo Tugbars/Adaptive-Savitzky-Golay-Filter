@@ -1,4 +1,4 @@
-#include <stdbool.h>
+﻿#include <stdbool.h>
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -7,13 +7,13 @@
 #include "../adaptive_window/adaptive_filtering_window.h"
 #include "../filter_state_machine/adaptive_filtering_config.h"
 
-#define DEBUG_WINDOW
+#undef DEBUG_WINDOW
 #define MAX_ITERATIONS ((MAX_WINDOW - MIN_WINDOW) / 2 + 1)
 
 typedef struct {
     double correlation;
     double smoothness;
-    int window_size;
+    uint8_t window_size;
 } Result;
 
 /*!
@@ -27,7 +27,7 @@ typedef struct {
  * @param n The number of elements in the arrays.
  * @return The Pearson correlation coefficient.
  */
-double calculate_correlation(const MqsRawDataPoint_t* x, const MqsRawDataPoint_t* y, int peakIndex, int interval_size) {
+double calculate_correlation(const MqsRawDataPoint_t* x, const MqsRawDataPoint_t* y, uint16_t peakIndex, uint16_t interval_size) {
     int half_range = interval_size / 2;
     int start = (peakIndex - half_range >= 0) ? peakIndex - half_range : 0;
     int end = peakIndex + half_range;
@@ -83,7 +83,7 @@ static bool is_odd(int num) {
  * @param n The number of elements in the array.
  * @return The calculated smoothness of the dataset.
  */
-double calculate_smoothness(const MqsRawDataPoint_t* data, int peakIndex, int interval_size) {
+double calculate_smoothness(const MqsRawDataPoint_t* data, uint16_t peakIndex, uint16_t interval_size) {
     int half_range = interval_size / 2;
     int start = (peakIndex - half_range >= 0) ? peakIndex - half_range : 0;
     int end = peakIndex + half_range; //should be smaller than len. 
@@ -107,7 +107,7 @@ double calculate_smoothness(const MqsRawDataPoint_t* data, int peakIndex, int in
  * @param halfWindowSize The half window size for the Savitzky-Golay filter.
  * @param polyorder The polynomial order for the Savitzky-Golay filter.
  */
-static void apply_savgol_filter(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, int dataSize, int halfWindowSize, int polyorder) {
+static inline void apply_savgol_filter(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, uint16_t dataSize, uint8_t halfWindowSize, uint8_t polyorder) {
     mes_savgolFilter(noisySignal, dataSize, halfWindowSize, smoothedSignal, polyorder, 0, 0);
 }
 
@@ -125,7 +125,7 @@ static void apply_savgol_filter(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_
  * @param best_smoothness Pointer to store the best smoothness value found.
  * @param best_window_size Pointer to store the best window size found.
  */
-static void select_best_available_window(const Result* results, int iteration, double crit_val, double* best_correlation, double* best_smoothness, int* best_window_size) {
+static void select_best_available_window(const Result* results, uint16_t iteration, double crit_val, double* best_correlation, double* best_smoothness, uint8_t* best_window_size) {
     *best_correlation = results[0].correlation;
     *best_smoothness = results[0].smoothness;
     *best_window_size = results[0].window_size;
@@ -159,7 +159,7 @@ static void select_best_available_window(const Result* results, int iteration, d
  * @param best_window_size Pointer to the best window size found so far.
  * @return True if the current window size is better than the previous best, otherwise False.
  */
-static bool evaluate_results_and_update_best(double correlation, double smoothed_smoothness, double crit_val, double* best_correlation, double* best_smoothness, int windowSize, int* best_window_size) {
+static bool evaluate_results_and_update_best(double correlation, double smoothed_smoothness, double crit_val, double* best_correlation, double* best_smoothness, uint8_t windowSize, uint8_t* best_window_size) {
     if (smoothed_smoothness < SMOOTHNESS_THRESHOLD) {
         if (correlation > *best_correlation && correlation > crit_val) {
             *best_correlation = correlation;
@@ -190,7 +190,7 @@ static bool evaluate_results_and_update_best(double correlation, double smoothed
  * @param smoothed_smoothness Pointer to store the calculated smoothness of the smoothed signal.
  * @param correlation Pointer to store the calculated Pearson correlation coefficient.
  */
-static void calculate_smoothness_and_correlation(const MqsRawDataPoint_t* noisySignal, const MqsRawDataPoint_t* smoothedSignal, int peakIndex, int interval_size, double* smoothed_smoothness, double* correlation) {
+static inline void calculate_smoothness_and_correlation(const MqsRawDataPoint_t* noisySignal, const MqsRawDataPoint_t* smoothedSignal, uint16_t peakIndex, uint16_t interval_size, double* smoothed_smoothness, double* correlation) {
     *correlation = calculate_correlation(noisySignal, smoothedSignal, peakIndex, interval_size);
     *smoothed_smoothness = calculate_smoothness(smoothedSignal, peakIndex, interval_size);
 }
@@ -209,7 +209,7 @@ static void calculate_smoothness_and_correlation(const MqsRawDataPoint_t* noisyS
  * @param best_correlation A pointer to store the best correlation coefficient found.
  * @return The best window size for the Savitzky-Golay filter.
  */
-static int find_best_window_size(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, int dataSize, int polyorder, double crit_val, double* best_correlation, int peakIndex, int interval_size) {
+static int find_best_window_size(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, uint16_t dataSize, uint8_t polyorder, double crit_val, double* best_correlation, uint16_t peakIndex, uint16_t interval_size) {
     int windowSize = g_adaptive_filtering_config.min_window;
     int best_window_size = g_adaptive_filtering_config.min_window;
 
@@ -282,7 +282,7 @@ static int find_best_window_size(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint
  * @param polyorder The polynomial order for the Savitzky-Golay filter.
  * @param crit_val The critical value for the correlation coefficient.
  */
-int adaptive_savgol_filter(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, int dataSize, int polyorder, double crit_val, int peakIndex, int interval_size) {
+int adaptive_savgol_filter(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, uint16_t dataSize, uint8_t polyorder, double crit_val, uint16_t peakIndex, uint16_t interval_size) {
     if (!noisySignal || !smoothedSignal || g_adaptive_filtering_config.min_window < 5 || !is_odd(g_adaptive_filtering_config.min_window) || dataSize <= 0) {
         //fprintf(stderr, "error\n");
         return g_adaptive_filtering_config.min_window;

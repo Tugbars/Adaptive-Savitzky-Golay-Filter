@@ -9,6 +9,7 @@
 
 #include "../mqs_def.h"
 #include "stdbool.h"
+#include <stdint.h>
 #include "adaptive_filtering_config.h"
 
 // Global variables for peak index and result
@@ -33,17 +34,15 @@ typedef struct {
     double sigma;
     double best_smoothness;
     double best_correlation;
-    int start;
-    int end;
-    int best_order;
-    int best_window;
+    uint16_t start;       // Changed from int to uint16_t
+    uint16_t end;         // Changed from int to uint16_t
+    uint8_t best_order;   // Changed from int to uint8_t
+    uint8_t best_window;  // Changed from int to uint8_t
     int len;
     int interval_size;
     void (*callback)(void);
 } DenoiseContext;
 
 // Function to encapsulate the initialization and state machine start-up
-void startDenoisingProcess(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, size_t len, void (*callback)(void));
-
-void populate_noisy_sig(MqsRawDataPoint_t* noisy_sig, const double* dataset, size_t dataSize);
+void startDenoisingProcess(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, uint16_t len, void (*callback)(void));
 #endif // ADAPTIVE_FILTERING_H

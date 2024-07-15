@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
-
+    
 #include "../savitzky_golay_filter/mes_savgol.h"
 #include "../adaptive_window/adaptive_filtering_window.h"
 #include "../adaptive_order/mes_adaptive_order.h"
@@ -137,7 +137,7 @@ static void ProcessStateChange(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* 
         isChanged = (next != ctx.current_state);
 
         if (isChanged) {
-            printf("Transitioning from %s to %s\n", STATE_NAMES[ctx.current_state], STATE_NAMES[next]);
+            //printf("Transitioning from %s to %s\n", STATE_NAMES[ctx.current_state], STATE_NAMES[next]);
 
             if (STATE_FUNCS[ctx.current_state].onExit) {
                 STATE_FUNCS[ctx.current_state].onExit(noisy_sig, smoothed_sig);
@@ -238,7 +238,7 @@ static void onExitFindPeakRange(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t*
  * @brief Entry function for the EVAL_OPTIMAL_ORDER state.
  */
 static void onEntryEvalOptimalOrder(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig) {
-    uint16_t peakIndex;
+    uint16_t peakIndex = 0;
     double peakVal = find_primary_peak(noisy_sig, ctx.len, &peakIndex);
 
     evaluate_optimal_order_for_all_indexes(
@@ -246,11 +246,13 @@ static void onEntryEvalOptimalOrder(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoin
         ctx.len, ctx.sigma, optimal_order_windows, peakIndex, SMOOTH_CORR_INTERVAL
     );
 
+    /*
     printf("Optimal Order Windows: interval_size %d\n", ctx.interval_size);
     for (int i = 0; i < ctx.interval_size; i++) {
         printf("Index %d: Optimal Order = %d, Optimal Window = %d\n",
             i, optimal_order_windows[i].optimal_order, optimal_order_windows[i].optimal_window);
     }
+    */
 
     STATE_FUNCS[ctx.current_state].isComplete = true;
     ProcessStateChange(noisy_sig, smoothed_sig);

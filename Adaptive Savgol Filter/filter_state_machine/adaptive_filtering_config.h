@@ -1,11 +1,11 @@
 #ifndef ADAPTIVE_FILTERING_CONFIG_H
 #define ADAPTIVE_FILTERING_CONFIG_H
-
+#include <stdint.h>
 typedef struct {
-    int min_window;
-    int max_window;
-    int pmin;
-    int pmax;
+    uint8_t min_window;
+    uint8_t max_window;
+    uint8_t pmin;
+    uint8_t pmax;
 } AdaptiveFilteringConfig;
 
 #define MIN_WINDOW 13
@@ -21,9 +21,6 @@ typedef struct {
 
 extern AdaptiveFilteringConfig g_adaptive_filtering_config;
 
-void initialize_adaptive_filtering_config(int min_window, int max_window, int pmin, int pmax);
-void update_adaptive_filtering_config(int min_window, int max_window, int pmin, int pmax);
-
+void initialize_adaptive_filtering_config(uint8_t min_window, uint8_t max_window, uint8_t pmin, uint8_t pmax);
+void update_adaptive_filtering_config(uint8_t min_window, uint8_t max_window, uint8_t pmin, uint8_t pmax);
 #endif // ADAPTIVE_FILTERING_CONFIG_H
-
-//maybe these intervals are not well transferred 

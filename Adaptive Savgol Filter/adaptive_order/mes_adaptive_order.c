@@ -3,12 +3,11 @@
 #include <math.h>
 #include <stdbool.h>
 #include "../savitzky_golay_filter/mes_savgol.h"
-#include "mes_adaptive_order.h"
+#include "../adaptive_order/mes_adaptive_order.h"
 #include "../adaptive_window/adaptive_filtering_window.h"
 
-#include "assert.h"
-
-#define DEBUG_ORDER
+#include <assert.h>
+#undef DEBUG_ORDER
 /*
 %%%% Input
      % M: half-window length
@@ -36,7 +35,7 @@
  * @param type The type of noise ('G' for Gaussian, 'L' for Laplacian, 'U' for Uniform).
  * @return The estimated noise standard deviation.
  */
-double calculate_sigma(MqsRawDataPoint_t* noisy_sig, int len, char type) {
+double calculate_sigma(MqsRawDataPoint_t* noisy_sig, uint16_t len, char type) {
     assert(noisy_sig != NULL);
     assert(len > 0);
     assert(type == 'G' || type == 'L' || type == 'U');
@@ -74,9 +73,9 @@ double calculate_sigma(MqsRawDataPoint_t* noisy_sig, int len, char type) {
  * @param lambda The regularization parameter.
  * @param GUE_MSE The output array to store the GUE-MSE values.
  */
-void calculate_gue_mse(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, int len, double sigma, double lambda, double* GUE_MSE) {
+void calculate_gue_mse(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, uint16_t len, double sigma, double lambda, double* GUE_MSE) {
     if (noisy_sig == NULL || smoothed_sig == NULL || GUE_MSE == NULL || len <= 0) {
-        fprintf(stderr, "Invalid input to calculate_gue_mse\n");
+        //fprintf(stderr, "Invalid input to calculate_gue_mse\n");
         return;
     }
 
@@ -102,7 +101,7 @@ void calculate_gue_mse(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed
  * @param max_index Pointer to store the index of the maximum value found.
  * @return The index of the maximum value found in the array.
  */
-static inline int maxrow(const MqsRawDataPoint_t a[], int size, int col, float* max_val, int* max_index) {
+static inline int maxrow(const MqsRawDataPoint_t a[], uint16_t size, uint16_t col, float* max_val, int* max_index) {
     for (int i = 0; i < size; i++) {
         if (*max_val < a[i].phaseAngle) {
             *max_val = a[i].phaseAngle;
@@ -124,7 +123,7 @@ static inline int maxrow(const MqsRawDataPoint_t a[], int size, int col, float* 
  * @param peakIndex Pointer to store the index of the found peak.
  * @return The value of the peak found.
  */
-static double findPeakRec(const MqsRawDataPoint_t a[], int size, int l, int r, uint16_t* peakIndex) {
+double findPeakRec(const MqsRawDataPoint_t a[], int size, uint16_t l, uint16_t r, uint16_t* peakIndex) {
     if (l > r) return -1;
 
     int mid = (l + r) / 2;
@@ -158,7 +157,7 @@ static double findPeakRec(const MqsRawDataPoint_t a[], int size, int l, int r, u
  * @param peakIndex Pointer to store the index of the found peak.
  * @return The value of the primary peak found.
  */
-double find_primary_peak(MqsRawDataPoint_t* noisy_sig, int len, uint16_t* peakIndex) {
+double find_primary_peak(MqsRawDataPoint_t* noisy_sig, uint16_t len, uint16_t* peakIndex) {
     return findPeakRec(noisy_sig, len, 0, len - 1, peakIndex);
 }
 
@@ -172,7 +171,17 @@ double find_primary_peak(MqsRawDataPoint_t* noisy_sig, int len, uint16_t* peakIn
  * @param start Pointer to store the start index of the range.
  * @param end Pointer to store the end index of the range.
  */
-void find_peak_range(MqsRawDataPoint_t* noisy_sig, int len, int interval_size, int* start, int* end) {
+void find_peak_range(MqsRawDataPoint_t* noisy_sig, uint16_t len, uint16_t interval_size, uint16_t* start, uint16_t* end) {
+
+    assert(len > 0);
+    assert(interval_size > 0 && interval_size <= len);
+
+    // Check for null pointers
+    if (noisy_sig == NULL || start == NULL || end == NULL) {
+        //printf("Error: Null pointer input\n");
+        return;
+    }
+
     uint16_t peakIndex;
     double peakVal = find_primary_peak(noisy_sig, len, &peakIndex);
 
@@ -210,7 +219,7 @@ void find_peak_range(MqsRawDataPoint_t* noisy_sig, int len, int interval_size, i
  * @param p The polynomial order.
  * @param optimal_window Pointer to store the optimal window size for the current order.
  */
-void calculate_gue_mse_for_order(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, int start, int end, int len, double sigma, double lambda, double* temp_gue_mse, double** GUE_MSE, int p, int* optimal_window, int peakIndex, int interval_size) {
+void calculate_gue_mse_for_order(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, uint16_t start, uint16_t end, uint16_t len, double sigma, double lambda, double* temp_gue_mse, double** GUE_MSE, uint16_t p, int* optimal_window, uint16_t peakIndex, uint16_t interval_size) {
     // Find the best window for the given order.
     int window_size = adaptive_savgol_filter(noisy_sig, smoothed_sig, len, p, CORRELATION_THRESHOLD, peakIndex, interval_size);
 
@@ -258,14 +267,14 @@ static double** allocate_gue_mse(uint8_t range_size, uint8_t order_range) {
         // Allocate new memory
         GUE_MSE = (double**)malloc(range_size * sizeof(double*)); // DATAPOINTS INTERVAL
         if (GUE_MSE == NULL) {
-            fprintf(stderr, "Failed to allocate memory for GUE_MSE\n");
+            //fprintf(stderr, "Failed to allocate memory for GUE_MSE\n");
             return NULL;
         }
 
         for (int i = 0; i < range_size; ++i) {
             GUE_MSE[i] = (double*)malloc(order_range * sizeof(double)); // ORDER INTERVAL
             if (GUE_MSE[i] == NULL) {
-                fprintf(stderr, "Failed to allocate memory for GUE_MSE[%d]\n", i);
+                //fprintf(stderr, "Failed to allocate memory for GUE_MSE[%d]\n", i);
                 for (int j = 0; j < i; ++j) { // Free previously allocated memory
                     free(GUE_MSE[j]);
                 }
@@ -305,15 +314,15 @@ static double** allocate_gue_mse(uint8_t range_size, uint8_t order_range) {
 static void evaluate_optimal_order_for_index(
     MqsRawDataPoint_t* noisy_sig,
     MqsRawDataPoint_t* smoothed_sig,
-    int start,
-    int end,
-    int len,
+    uint16_t start,
+    uint16_t end,
+    uint16_t len,
     double sigma,
     double** GUE_MSE,
     OptimalOrderWindow* optimal_order_windows,
-    int i,
+    uint16_t i,
     uint16_t peakIndex,
-    int interval_size
+    uint16_t interval_size
 ) {
 #ifdef DEBUG_ORDER
     printf(" ****************** Testing index %d in the noisy dataset ******************\n", i);
@@ -360,13 +369,13 @@ static void evaluate_optimal_order_for_index(
 void evaluate_optimal_order_for_all_indexes(
     MqsRawDataPoint_t* noisy_sig,
     MqsRawDataPoint_t* smoothed_sig,
-    int start,
-    int end,
-    int len,
+    uint16_t start,
+    uint16_t end,
+    uint16_t len,
     double sigma,
     OptimalOrderWindow* optimal_order_windows,
     uint16_t peakIndex,
-    int interval_size
+    uint16_t interval_size
 ) {
     int range_size = end - start + 1;
     int order_range = MAX_ORDER - MIN_ORDER + 1;
@@ -397,9 +406,20 @@ void evaluate_optimal_order_for_all_indexes(
  * @param best_order Pointer to store the best polynomial order found.
  * @param best_window Pointer to store the best window size found.
  */
-void apply_optimal_filter_with_cache(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, int len, int start, int end, OptimalOrderWindow* results, double* best_smoothness, double* best_correlation, int* best_order, int* best_window) {
+void apply_optimal_filter_with_cache(
+    MqsRawDataPoint_t* noisy_sig,
+    MqsRawDataPoint_t* smoothed_sig,
+    uint16_t len,
+    uint16_t start,
+    uint16_t end,
+    OptimalOrderWindow* results,
+    double* best_smoothness,
+    double* best_correlation,
+    uint8_t* best_order,
+    uint8_t* best_window)
+{
     static CacheEntry cache[ORDER_EVAL_INTERVAL];
-    int cache_count = 0;
+    //int cache_count = 0;
 
     double best_smoothness_found = INFINITY;
     double best_correlation_found = 0.0;
@@ -486,7 +506,7 @@ void apply_optimal_filter_with_cache(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoi
  * @param best_order The optimal polynomial order.
  * @param best_window The optimal window size.
  */
-void apply_optimal_filter(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, int len, int best_order, int best_window) {
+void apply_optimal_filter(MqsRawDataPoint_t* noisy_sig, MqsRawDataPoint_t* smoothed_sig, uint16_t len, uint8_t best_order, uint8_t best_window) {
     int half_window_size = (best_window - 1) / 2;
     mes_savgolFilter(noisy_sig, len, half_window_size, smoothed_sig, best_order, 0, 0);
 }
@@ -529,5 +549,3 @@ void run_denoising_process(MqsRawDataPoint_t* rawData, size_t dataSize, char typ
 }
 */
 
-
-//tüm state machinei değiştirmenin zamanı geldi. 

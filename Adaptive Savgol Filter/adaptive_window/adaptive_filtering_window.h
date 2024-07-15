@@ -8,8 +8,7 @@
 #define CORRELATION_THRESHOLD 0.99
 
 // Adaptive Savitzky-Golay filter function
-int adaptive_savgol_filter(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, int dataSize, int polyorder, double crit_val, int peakIndex, int interval_size);
-double calculate_smoothness(const MqsRawDataPoint_t* data, int peakIndex, int interval_size);
-double calculate_correlation(const MqsRawDataPoint_t* x, const MqsRawDataPoint_t* y, int peakIndex, int interval_size);
-
+int adaptive_savgol_filter(MqsRawDataPoint_t* noisySignal, MqsRawDataPoint_t* smoothedSignal, uint16_t dataSize, uint8_t polyorder, double crit_val, uint16_t peakIndex, uint16_t interval_size);
+double calculate_smoothness(const MqsRawDataPoint_t* data, uint16_t peakIndex, uint16_t interval_size);
+double calculate_correlation(const MqsRawDataPoint_t* x, const MqsRawDataPoint_t* y, uint16_t peakIndex, uint16_t interval_size);
 #endif // ADAPTIVE_SAVGOL_H

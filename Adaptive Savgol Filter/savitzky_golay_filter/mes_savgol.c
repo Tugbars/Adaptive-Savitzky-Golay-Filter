@@ -28,6 +28,8 @@ uint8_t g_derivativeOrder;
 // notifies how many hash map entries the function has registered. 
 int totalHashMapEntries = 0;
 
+MemoizationContext context;
+
 /*!
  * @brief Generates a hash value for a given GramPolyKey structure.
  *
@@ -463,7 +465,6 @@ SavitzkyGolayFilter* getFilterInstance(uint8_t halfWindowSize, uint8_t polynomia
  * @param derivativeOrder The derivative order.
  */
 void mes_savgolFilter(MqsRawDataPoint_t data[], size_t dataSize, uint8_t halfWindowSize, MqsRawDataPoint_t filteredData[], uint8_t polynomialOrder, uint8_t targetPoint, uint8_t derivativeOrder) {
-    MemoizationContext context;
     initializeMemoizationTable(&context);
     gramPolyCallCount = 0;
     //printf("GramPoly call count before applying filter: %d\n", gramPolyCallCount);
