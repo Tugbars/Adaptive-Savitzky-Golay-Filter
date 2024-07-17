@@ -3,43 +3,40 @@
 
 #include "../mqs_def.h"
 #include <stdlib.h>
+#include <stdbool.h>  // Include for boolean type
 
-#define MAX_ENTRIES 180 // for computing weights for each border case. 
+//#define HALF_WINDOW_SIZE 13
+//#define POLYNOMIAL_ORDER 4
+//#define CALC_MEMO_ENTRIES(halfWindowSize, polynomialOrder) (((2 * (halfWindowSize) + 1) * ((polynomialOrder) + 1))) //not accurate, ignores edge Cases
 
-// Define a structure to hold the memoization table and other related data
+#define MAX_ENTRIES 138
+
 typedef struct {
-    uint8_t halfWindowSize;      // was m
-    uint16_t targetPoint;        // was t
-    uint8_t polynomialOrder;     // was n
-    uint8_t derivativeOrder;     // was s
-    float time_step;             // Changed from double to float
-    uint8_t derivation_order;    // Adjusting to match the derivativeOrder type
-} SavitzkyGolayFilterConfig;
-
-typedef struct GramPolyKey {
-    int dataIndex;
+    uint16_t halfWindowSize;
+    uint16_t targetPoint;
     uint8_t polynomialOrder;
     uint8_t derivativeOrder;
-    uint8_t caseType; // 0 for central, 1 for border
-} GramPolyKey;
+    float time_step;
+    uint8_t derivation_order;
+} SavitzkyGolayFilterConfig;
 
-typedef struct HashMapEntry {
-    GramPolyKey key;
-    float value;                 // Changed from double to float
-    int isOccupied;
+typedef struct {
+    uint32_t key;
+    float value;
+    bool isOccupied;
 } HashMapEntry;
 
 typedef struct {
-    SavitzkyGolayFilterConfig conf;
-    float dt;                    // Changed from double to float
-} SavitzkyGolayFilter;
-
-typedef struct {
     HashMapEntry memoizationTable[MAX_ENTRIES];
-    int totalHashMapEntries;
+    uint16_t totalHashMapEntries;
 } MemoizationContext;
 
-SavitzkyGolayFilter SavitzkyGolayFilter_init(SavitzkyGolayFilterConfig conf, MemoizationContext* context);
+typedef struct {
+    SavitzkyGolayFilterConfig conf;
+    float dt;
+} SavitzkyGolayFilter;
+
+SavitzkyGolayFilter SavitzkyGolayFilter_init(SavitzkyGolayFilterConfig conf);
 void mes_savgolFilter(MqsRawDataPoint_t data[], size_t dataSize, uint8_t halfWindowSize, MqsRawDataPoint_t filteredData[], uint8_t polynomialOrder, uint8_t targetPoint, uint8_t derivativeOrder);
 
 #endif // MES_SAVGOL_H
