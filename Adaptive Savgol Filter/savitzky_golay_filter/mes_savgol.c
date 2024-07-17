@@ -1,8 +1,8 @@
-﻿/*!
+/*!
  * Optimized Savitzky-Golay Filter Implementation with Recursive Calculation and Memoization.
  *
  * Author: Tugbars Heptaskin
- * Date: 06/18/2024
+ * Date: 07/17/2024
  * Company: Aminic Aps
  *
  * This implementation provides an efficient and optimized version of the Savitzky-Golay filter,
@@ -17,85 +17,58 @@
 #include "mes_savgol.h"
 #include "../adaptive_window/adaptive_filtering_window.h"
 
- // Global counter for GramPoly calls
+// Global counter for GramPoly calls
 int gramPolyCallCount = 0;
 
-// global values to minimize the stack footprint of GramPoly
+// Global values to minimize the stack footprint of GramPoly
 int g_dataIndex;
 uint8_t g_halfWindowSize;
 uint8_t g_targetPoint = 0;
 uint8_t g_derivativeOrder;
-// notifies how many hash map entries the function has registered. 
-int totalHashMapEntries = 0;
 
-MemoizationContext context;
+// Global MemoizationContext
+static MemoizationContext context;
 
 /*!
- * @brief Generates a hash value for a given GramPolyKey structure.
+ * @brief Combines dataIndex and polynomialOrder into a single key for memoization.
  *
- * This function creates a hash value for a GramPolyKey, which is used in the memoization
- * process of the Gram Polynomial calculations. The hash is generated using a combination of
- * the fields within the GramPolyKey structure: dataIndex, polynomialOrder, derivativeOrder,
- * and caseType.
+ * This function combines a 16-bit data index and an 8-bit polynomial order into a single
+ * 32-bit key. This combined key is used in the hash function for memoization.
  *
- * The hashing algorithm combines these fields using a series of multiplications and additions,
- * along with a chosen prime number (37 in this case), to generate a relatively unique hash
- * for each distinct GramPolyKey. The resulting hash value is then modulated by the `tableSize`
- * to ensure it fits within the bounds of the memoization table.
- *
- * This hash function is designed to distribute keys uniformly across the hash table, thereby
- * reducing collisions and improving the efficiency of the memoization process.
- *
- * @param key The GramPolyKey structure containing the parameters for which the hash is to be generated.
- * @param tableSize The size of the hash table, used to ensure the hash value fits within the table.
- * @return The generated hash value as an unsigned integer.
+ * @param dataIndex The data index.
+ * @param polynomialOrder The polynomial order.
+ * @return The combined 32-bit key.
  */
-unsigned int hashGramPolyKey(GramPolyKey key, int tableSize) {
-    unsigned int hash = 0;
-    hash = key.dataIndex;
-    hash = (hash * 37 + key.polynomialOrder) % tableSize;
-    hash = (hash * 37 + key.derivativeOrder) % tableSize;
-    hash = (hash * 37 + key.caseType) % tableSize;  // Include caseType in the hash
-    return hash % tableSize;
+static inline uint32_t combineKey(uint16_t dataIndex, uint8_t polynomialOrder) {
+    return ((uint32_t)dataIndex << 8) | polynomialOrder;
+}
+
+/*!
+ * @brief Generates a hash value for a given key using a simple modulo operation.
+ *
+ * This function generates a hash value by taking the modulo of the key with the table size.
+ * This ensures that the hash value fits within the bounds of the memoization table.
+ *
+ * @param key The combined 32-bit key.
+ * @param tableSize The size of the hash table.
+ * @return The generated hash value.
+ */
+static unsigned int hashGramPolyKey(uint32_t key, int tableSize) {
+    return key % tableSize;
 }
 
 /*!
  * @brief Initialize the memoization table.
+ *
+ * This function initializes the memoization table used for caching the results of
+ * Gram Polynomial calculations. Each entry in the table is marked as unoccupied,
+ * and the total number of entries is set to zero.
  */
-static void initializeMemoizationTable(MemoizationContext* context) {
+static void initializeMemoizationTable() {
     for (int i = 0; i < MAX_ENTRIES; i++) {
-        context->memoizationTable[i].isOccupied = 0;
+        context.memoizationTable[i].isOccupied = false;
     }
-    context->totalHashMapEntries = 0;  // Reset the counter
-}
-
-/*!
- * @brief Compare two GramPolyKey structures.
- *
- * @param key1 The first GramPolyKey structure.
- * @param key2 The second GramPolyKey structure.
- * @return 1 if keys are equal, otherwise 0.
- */
-static int compareGramPolyKeys(GramPolyKey key1, GramPolyKey key2) {
-    return key1.dataIndex == key2.dataIndex &&
-        key1.polynomialOrder == key2.polynomialOrder &&
-        key1.derivativeOrder == key2.derivativeOrder &&
-        key1.caseType == key2.caseType;  // Include caseType in the comparison
-}
-
-/*!
- * @brief Calculate a generalized factorial product for use in polynomial coefficient normalization.
- *
- * @param upperLimit The upper boundary of the range (inclusive) for the product calculation.
- * @param termCount The number of consecutive integers from `upperLimit` to include in the product.
- * @return The product of the sequence, representing a generalized factorial, as a float.
- */
-static inline float GenFact(uint8_t upperLimit, uint8_t termCount) {
-    float product = 1.0f;  // Changed from double to float
-    for (uint8_t j = (upperLimit - termCount) + 1; j <= upperLimit; j++) {
-        product *= j;
-    }
-    return product;
+    context.totalHashMapEntries = 0;
 }
 
 /*!
@@ -106,23 +79,17 @@ static inline float GenFact(uint8_t upperLimit, uint8_t termCount) {
  * over the window is zero. This orthogonality is crucial for isolating the contributions of each polynomial
  * order to the filtering process, thus minimizing distortion during data smoothing and differentiation.
  *
- * @param dataIndex The index within the data window at which to evaluate the polynomial.
- * @param halfWindowSize The half size of the window ('m'), defining the symmetric window as '2m+1'.
  * @param polynomialOrder The order of the polynomial (k) to compute.
- * @param derivativeOrder The order of the derivative to compute (0 for the polynomial itself).
  * @return The value of the Gram Polynomial or its specified derivative at the given index.
  */
-static float GramPoly(uint8_t polynomialOrder, MemoizationContext* context) {
+static float GramPoly(uint8_t polynomialOrder) {
+    //gramPolyCallCount++;
 
-    // Increment the global counter
-    gramPolyCallCount++;
-
-    // Use global variables within the function
     uint8_t halfWindowSize = g_halfWindowSize;
     uint8_t derivativeOrder = g_derivativeOrder;
     int dataIndex = g_dataIndex;
 
-    if (polynomialOrder == 0) { //base case. memoization mostly aims to skip this part if it was executed in the previous iterations of Gram Poly. 
+    if (polynomialOrder == 0) {
         return (g_derivativeOrder == 0) ? 1.0 : 0.0;
     }
 
@@ -131,32 +98,21 @@ static float GramPoly(uint8_t polynomialOrder, MemoizationContext* context) {
     float c = ((polynomialOrder - 1.0) * (2.0 * halfWindowSize + polynomialOrder)) / (polynomialOrder * (2.0 * halfWindowSize - polynomialOrder + 1.0));
 
     if (polynomialOrder >= 2) {
-        // Calculate the first part of b
-        b += dataIndex * GramPoly(polynomialOrder - 1, context); // Recursion with updated polynomialOrder
+        b += dataIndex * GramPoly(polynomialOrder - 1);
 
-        // Calculate the second part of b, taking into account derivativeOrder
         if (derivativeOrder > 0) {
-            // Temporarily decrement the global derivativeOrder for the recursive call
             g_derivativeOrder = derivativeOrder - 1;
-
-            b += derivativeOrder * GramPoly(polynomialOrder - 1, context); // Recursion with updated polynomialOrder and derivativeOrder
-            // Restore the global derivativeOrder after the recursive call
+            b += derivativeOrder * GramPoly(polynomialOrder - 1);
             g_derivativeOrder = derivativeOrder;
         }
 
-        // Recursion for the second term of GramPoly
-        return a * b - c * GramPoly(polynomialOrder - 2, context);
-    }
-    else if (polynomialOrder == 1) {
-
+        return a * b - c * GramPoly(polynomialOrder - 2);
+    } else if (polynomialOrder == 1) {
         a = (2.0) / (2.0 * halfWindowSize);
-        // Calculate b for polynomialOrder == 1
-        b += dataIndex * GramPoly(0, context);
+        b += dataIndex * GramPoly(0);
         if (derivativeOrder > 0) {
-            // Temporarily decrement the global derivativeOrder for the recursive call
             g_derivativeOrder = derivativeOrder - 1;
-            b += derivativeOrder * GramPoly(0, context);
-            // Restore the global derivativeOrder after the recursive call
+            b += derivativeOrder * GramPoly(0);
             g_derivativeOrder = derivativeOrder;
         }
         return a * b;
@@ -170,75 +126,83 @@ static float GramPoly(uint8_t polynomialOrder, MemoizationContext* context) {
  *
  * This function serves as a memoization wrapper for the GramPoly function,
  * aiming to optimize the computational efficiency by storing and reusing
- * previously calculated values. It uses a hash table for memoization.
+ * previously calculated values. It uses a hash table for memoization with
+ * linear probing to handle collisions.
  *
- * It first calculates a hash index for the given Gram Polynomial parameters
- * (data index, polynomial order, derivative order, and case type). If the
- * calculated polynomial value for these parameters is already stored in the
- * memoization table, it returns the stored value. Otherwise, it calculates
- * the value using the GramPoly function, stores it in the table, and then
- * returns the value.
- *
- * This approach significantly reduces the number of recursive calls to GramPoly,
- * especially in cases where the same polynomial values are needed multiple times.
+ * The function calculates a hash index for the given Gram Polynomial parameters
+ * (data index and polynomial order). If the calculated polynomial value for these
+ * parameters is already stored in the memoization table, it returns the stored value.
+ * Otherwise, it calculates the value using the GramPoly function, stores it in the table,
+ * and then returns the value. This significantly reduces the number of recursive calls
+ * to GramPoly, especially when the same polynomial values are needed multiple times.
  *
  * @param polynomialOrder The order of the polynomial.
- * @param caseType The type of case (central or border) for which the polynomial is evaluated.
  * @return The memoized value of the Gram Polynomial or its derivative.
  */
-static float memoizedGramPoly(uint8_t polynomialOrder, uint8_t caseType, MemoizationContext* context) {
-    GramPolyKey key = { g_dataIndex, polynomialOrder, g_derivativeOrder, caseType };
-    unsigned int hashIndex = hashGramPolyKey(key, MAX_ENTRIES);
-
-    // Linear probing for collision resolution
-    int startIndex = hashIndex;  // Remember where we started
-    while (context->memoizationTable[hashIndex].isOccupied) {
-        if (compareGramPolyKeys(context->memoizationTable[hashIndex].key, key)) {
-            // Key found, return the stored value
-            return context->memoizationTable[hashIndex].value;
-        }
-        hashIndex = (hashIndex + 1) % MAX_ENTRIES;  // Move to next index
-        if (hashIndex == startIndex) {
-            // We've looped all the way around; the table is full
-            break;
-        }
+static float memoizedGramPoly(uint8_t polynomialOrder) {
+    if (context.totalHashMapEntries >= MAX_ENTRIES) {
+        return GramPoly(polynomialOrder);
     }
 
-    // If we're here, we didn't find the key, so calculate the value
-    float value = GramPoly(polynomialOrder, context);
+    uint32_t key = combineKey(g_dataIndex, polynomialOrder);
+    unsigned int hashIndex = hashGramPolyKey(key, MAX_ENTRIES);
 
-    // Check if we can add a new entry
-    if (context->totalHashMapEntries < MAX_ENTRIES) {
-        context->memoizationTable[hashIndex].key = key;
-        context->memoizationTable[hashIndex].value = value;
-        context->memoizationTable[hashIndex].isOccupied = 1;
-        //context->totalHashMapEntries++;
-    }  // Otherwise, the table is full; we can't memoize this value
+    while (context.memoizationTable[hashIndex].isOccupied) {
+        if (context.memoizationTable[hashIndex].key == key) {
+            return context.memoizationTable[hashIndex].value;
+        }
+        hashIndex = (hashIndex + 1) % MAX_ENTRIES;
+    }
+
+    float value = GramPoly(polynomialOrder);
+
+    context.memoizationTable[hashIndex].key = key;
+    context.memoizationTable[hashIndex].value = value;
+    context.memoizationTable[hashIndex].isOccupied = true;
+    context.totalHashMapEntries++;
 
     return value;
 }
 
 /*!
+ * @brief Calculate a generalized factorial product for use in polynomial coefficient normalization.
+ *
+ * @param upperLimit The upper boundary of the range (inclusive) for the product calculation.
+ * @param termCount The number of consecutive integers from `upperLimit` to include in the product.
+ * @return The product of the sequence, representing a generalized factorial, as a float.
+ */
+static float GenFact(uint8_t upperLimit, uint8_t termCount) {
+    float product = 1.0f;
+    for (uint8_t j = (upperLimit - termCount) + 1; j <= upperLimit; j++) {
+        product *= j;
+    }
+    return product;
+}
+
+/*!
  * @brief Computes the weight of a specific data point within a window for least-squares polynomial fitting.
+ *
+ * This function calculates the weight of a data point within the window of the Savitzky-Golay filter.
+ * The weight is computed based on the Gram Polynomial values and their derivatives, which are memoized
+ * to enhance computational efficiency.
  *
  * @param dataIndex Index of the data point within the window for which the weight is being calculated.
  * @param targetPoint The index within the dataset at which the least-squares fit is evaluated.
  * @param polynomialOrder The order of the polynomial used in the least-squares fitting process.
- * @param caseType Specifies the handling method for calculating weights at the edges of the data window.
  * @return The calculated weight for the data point at `dataIndex`.
  */
-static float Weight(int dataIndex, int targetPoint, uint8_t polynomialOrder, uint8_t caseType, MemoizationContext* context) {
+static float Weight(int dataIndex, int targetPoint, uint8_t polynomialOrder) {
     float w = 0.0;
     uint8_t derivativeOrder = g_derivativeOrder;
-    // calculating binomial-like coefficients
+
     for (uint8_t k = 0; k <= polynomialOrder; ++k) {
         g_dataIndex = dataIndex;
         g_derivativeOrder = 0;
-        float part1 = memoizedGramPoly(k, caseType, context);  // Uses g_dataIndex implicitly
+        float part1 = memoizedGramPoly(k);
         g_derivativeOrder = derivativeOrder;
         g_dataIndex = targetPoint;
 
-        float part2 = memoizedGramPoly(k, caseType, context);  // Uses g_dataIndex (now targetPoint) implicitly
+        float part2 = memoizedGramPoly(k);
 
         w += (2 * k + 1) * (GenFact(2 * g_halfWindowSize, k) / GenFact(2 * g_halfWindowSize + k + 1, k + 1)) * part1 * part2;
     }
@@ -248,24 +212,27 @@ static float Weight(int dataIndex, int targetPoint, uint8_t polynomialOrder, uin
 /*!
  * @brief Computes the weights for each data point in a specified window for Savitzky-Golay filtering.
  *
+ * This function calculates the weights for all data points within the filter window based on the
+ * specified half-window size, target point, polynomial order, and derivative order. These weights
+ * are used in the convolution step of the Savitzky-Golay filter.
+ *
  * @param halfWindowSize The half window size of the Savitzky-Golay filter.
  * @param targetPoint The point at which the least-squares fit is evaluated.
  * @param polynomialOrder The order of the polynomial used in the least-squares fit.
  * @param derivativeOrder The order of the derivative for which the weights are being calculated.
  * @param weights An array to store the calculated weights.
- * @param caseType Indicates the type of case for weight calculation.
  */
-static void ComputeWeights(uint8_t halfWindowSize, uint16_t targetPoint, uint8_t polynomialOrder, uint8_t derivativeOrder, float* weights, int caseType, MemoizationContext* context) {
+static void ComputeWeights(uint8_t halfWindowSize, uint16_t targetPoint, uint8_t polynomialOrder, uint8_t derivativeOrder, float* weights) {
     g_halfWindowSize = halfWindowSize;
     g_derivativeOrder = derivativeOrder;
     g_targetPoint = targetPoint;
-    //printf("g_targetPoint %d\n", g_targetPoint);
     uint16_t fullWindowSize = 2 * halfWindowSize + 1;
     for (int dataIndex = 0; dataIndex < fullWindowSize; ++dataIndex) {
-        // Now Weight function is provided all necessary arguments including table for memoization
-        weights[dataIndex] = Weight(dataIndex - g_halfWindowSize, g_targetPoint, polynomialOrder, caseType, context);
+        weights[dataIndex] = Weight(dataIndex - g_halfWindowSize, g_targetPoint, polynomialOrder);
     }
 }
+
+#define MAX_WINDOW_SIZE 33
 
 /*!
  * @brief Applies the Savitzky-Golay filter to the given data set.
@@ -290,45 +257,37 @@ static void ComputeWeights(uint8_t halfWindowSize, uint16_t targetPoint, uint8_t
  *               and precomputed weights.
  * @param filteredData The array where the filtered data points will be stored.
  */
-static void ApplyFilter(MqsRawDataPoint_t data[], size_t dataSize, uint8_t halfWindowSize, uint16_t targetPoint, SavitzkyGolayFilter filter, MqsRawDataPoint_t filteredData[], MemoizationContext* context) {
-    // Calculate the maximum allowed halfWindowSize
-    uint8_t maxHalfWindowSize = (MAX_WINDOW - 1) / 2;
+static void ApplyFilter(MqsRawDataPoint_t data[], size_t dataSize, uint8_t halfWindowSize, uint16_t targetPoint, SavitzkyGolayFilter filter, MqsRawDataPoint_t filteredData[]) {
+    uint8_t maxHalfWindowSize = (MAX_WINDOW_SIZE - 1) / 2;
 
-    // Check if halfWindowSize exceeds the maximum allowed value
     if (halfWindowSize > maxHalfWindowSize) {
         printf("Warning: halfWindowSize (%d) exceeds the maximum allowed value (%d). Adjusting halfWindowSize to the maximum allowed value.\n", halfWindowSize, maxHalfWindowSize);
         halfWindowSize = maxHalfWindowSize;
     }
 
-    const int window = 2 * halfWindowSize + 1;  // Full window size
+    const int window = 2 * halfWindowSize + 1;
     const int endidx = dataSize - 1;
     uint8_t width = halfWindowSize;
-    static float weights[MAX_WINDOW];  // Static array to hold weights, assuming max window size is MAX_WINDOW
+    static float weights[MAX_WINDOW_SIZE];
 
-    // Compute central case weights once and store them in static array
-    ComputeWeights(halfWindowSize, targetPoint, filter.conf.polynomialOrder, filter.conf.derivativeOrder, weights, 1, context);
+    ComputeWeights(halfWindowSize, targetPoint, filter.conf.polynomialOrder, filter.conf.derivativeOrder, weights);
 
-    // Handle Central Cases
-    for (int i = 0; i <= dataSize - window; ++i) {  // Adjusted indices to account for halfWindowSize
+    for (int i = 0; i <= dataSize - window; ++i) {
         float sum = 0.0;
-        for (int j = 0; j < window; ++j) {  // Loop from -halfWindowSize to halfWindowSize
-            // Apply weights centered at 'i', spanning from 'i - halfWindowSize' to 'i + halfWindowSize'
-            sum += weights[j] * data[i + j].phaseAngle;  // Adjusted indices for weights and data
+        for (int j = 0; j < window; ++j) {
+            sum += weights[j] * data[i + j].phaseAngle;
         }
         filteredData[i + width].phaseAngle = sum;
     }
 
-    // Handle both Leading and Trailing Edge Cases in a single loop
     for (int i = 0; i < width; ++i) {
-        // Leading edge case
-        ComputeWeights(halfWindowSize, width - i, filter.conf.polynomialOrder, filter.conf.derivativeOrder, weights, 1, context);
+        ComputeWeights(halfWindowSize, width - i, filter.conf.polynomialOrder, filter.conf.derivativeOrder, weights);
         float leadingSum = 0.0;
         for (int j = 0; j < window; ++j) {
             leadingSum += weights[j] * data[window - j - 1].phaseAngle;
         }
         filteredData[i].phaseAngle = leadingSum;
 
-        // Trailing edge case
         float trailingSum = 0.0;
         for (int j = 0; j < window; ++j) {
             trailingSum += weights[j] * data[endidx - window + j + 1].phaseAngle;
@@ -337,79 +296,21 @@ static void ApplyFilter(MqsRawDataPoint_t data[], size_t dataSize, uint8_t halfW
     }
 }
 
-/**
- * @brief Applies a causal Savitzky-Golay filter to a specific point in a dataset.
+/*!
+ * @brief Initializes and configures the Savitzky-Golay filter.
  *
- * This function is designed for data smoothing using the Savitzky-Golay filter method.
- * It is a causal filter, meaning it uses only past values up to the specified window size
- * for smoothing. The function handles edge cases with either mirror padding or by utilizing
- * a previous dataset. This code below just exists to give an idea.
+ * This function initializes a Savitzky-Golay filter with specified configuration parameters.
+ * The filter is used for smoothing data points in a dataset and can be configured to operate
+ * as either a causal filter or a non-causal filter.
  *
- * @param data An array of data points where each point is of type MqsRawDataPoint_t.
- *             This array represents the current dataset to which the filter is applied.
- * @param index The index in the 'data' array at which the filter is to be applied. The filter
- *              uses values from 'data' at and before this index, up to the size of the window.
- * @param dataSize The total number of elements in the 'data' array.
- * @param halfWindowSize The half-size of the filter window. The actual window size used
- *                       is computed as (2 * halfWindowSize + 1). The filter uses this number
- *                       of past values from 'data' for calculating the smoothed value.
- * @param filter A pointer to a SavitzkyGolayFilter object, which contains the filter weights.
- * @param filteredData An array where the filtered data points will be stored. It should be
- *                     pre-allocated with a size at least equal to 'dataSize'.
- * @param previous An optional array of previous data points, used when the filter needs to access
- *                 data points before the start of the 'data' array. This is relevant for indices
- *                 smaller than the window size.
- * @param usePrevious A boolean flag to determine the behavior for indices smaller than the window size.
- *                    If true, values from the 'previous' array are used. If false, mirror padding
- *                    (using data[0]) is applied.
+ * @param conf The configuration structure containing filter parameters.
+ *
+ * @return An initialized Savitzky-GolayFilter structure.
  */
- /*
- ---DEACTIVATED---
- void ApplyFilterAtPoint(MqsRawDataPoint_t data[], int index, size_t dataSize, uint8_t halfWindowSize, SavitzkyGolayFilter* filter, MqsRawDataPoint_t filteredData[], MqsRawDataPoint_t previous[], bool usePrevious) {
-     const int window = 2 * halfWindowSize + 1;
-     double sum = 0.0;
-     if (index < dataSize) {
-         for (int j = 0; j < window; ++j) {
-             int dataIndex = index - window + j;
-             double phaseAngle;
-             if (dataIndex < 0) {
-                 if (usePrevious) {
-                     // Use corresponding value from previous[] array
-                     int previousIndex = dataSize + dataIndex; // Equivalent to dataSize - abs(dataIndex)
-                     phaseAngle = previous[previousIndex].phaseAngle;
-                 } else {
-                     // Mirror padding
-                     phaseAngle = data[0].phaseAngle;
-                 }
-             } else {
-                 phaseAngle = data[dataIndex].phaseAngle;
-             }
-             sum += filter->weights[j] * phaseAngle;
-         }
-         filteredData[index].phaseAngle = sum;
-     }
- }
- */
-
- /*!
-  * @brief Initializes and configures the Savitzky-Golay filter.
-  *
-  * This function initializes a Savitzky-Golay filter with specified configuration parameters.
-  * The filter is used for smoothing data points in a dataset and can be configured to operate
-  * as either a causal filter or a non-causal filter.
-  *
-  * @param halfWindowSize The half window size of the filter.
-  * @param polynomialOrder The order of the polynomial used in the least-squares fit.
-  * @param targetPoint The target point for the filter.
-  * @param derivativeOrder The order of the derivative for which the weights are being calculated.
-  * @param time_step The time step used in the filter.
-  *
-  * @return A pointer to the initialized Savitzky-GolayFilter structure.
-  */
-SavitzkyGolayFilter SavitzkyGolayFilter_init(SavitzkyGolayFilterConfig conf, MemoizationContext* context) {
+SavitzkyGolayFilter SavitzkyGolayFilter_init(SavitzkyGolayFilterConfig conf) {
     SavitzkyGolayFilter filter;
     filter.conf = conf;
-    filter.dt = pow(conf.time_step, conf.derivation_order); // Unused feature. Would be useful for real-time applications.
+    filter.dt = pow(conf.time_step, conf.derivation_order);
     return filter;
 }
 
@@ -421,14 +322,11 @@ SavitzkyGolayFilter SavitzkyGolayFilter_init(SavitzkyGolayFilterConfig conf, Mem
  * @param targetPoint The target point.
  * @param derivativeOrder The derivative order.
  * @param time_step The time step.
- * @return A pointer to the initialized Savitzky-GolayFilter structure.
+ * @return An initialized Savitzky-GolayFilter structure.
  */
-SavitzkyGolayFilter initFilter(uint8_t halfWindowSize, uint8_t polynomialOrder, uint8_t targetPoint, uint8_t derivativeOrder, float time_step, MemoizationContext* context) {
-    // Initialize configuration for the Savitzky-Golay filter
+SavitzkyGolayFilter initFilter(uint8_t halfWindowSize, uint8_t polynomialOrder, uint8_t targetPoint, uint8_t derivativeOrder, float time_step) {
     SavitzkyGolayFilterConfig conf = { halfWindowSize, targetPoint, polynomialOrder, derivativeOrder, time_step, derivativeOrder };
-
-    // Initialize filter with the given configuration and return it
-    return SavitzkyGolayFilter_init(conf, context);
+    return SavitzkyGolayFilter_init(conf);
 }
 
 /*!
@@ -445,11 +343,9 @@ SavitzkyGolayFilter initFilter(uint8_t halfWindowSize, uint8_t polynomialOrder, 
  * @param reset Boolean flag to indicate whether to reset the filter instance.
  * @return Pointer to the filter instance, or NULL if reset.
  */
-SavitzkyGolayFilter* getFilterInstance(uint8_t halfWindowSize, uint8_t polynomialOrder, uint8_t targetPoint, uint8_t derivativeOrder, bool reset, MemoizationContext* context) {
+SavitzkyGolayFilter* getFilterInstance(uint8_t halfWindowSize, uint8_t polynomialOrder, uint8_t targetPoint, uint8_t derivativeOrder, bool reset) {
     static SavitzkyGolayFilter filterInstance;
-
-    filterInstance = initFilter(halfWindowSize, polynomialOrder, targetPoint, derivativeOrder, 1.0, context);
-
+    filterInstance = initFilter(halfWindowSize, polynomialOrder, targetPoint, derivativeOrder, 1.0);
     return &filterInstance;
 }
 
@@ -465,14 +361,12 @@ SavitzkyGolayFilter* getFilterInstance(uint8_t halfWindowSize, uint8_t polynomia
  * @param derivativeOrder The derivative order.
  */
 void mes_savgolFilter(MqsRawDataPoint_t data[], size_t dataSize, uint8_t halfWindowSize, MqsRawDataPoint_t filteredData[], uint8_t polynomialOrder, uint8_t targetPoint, uint8_t derivativeOrder) {
-    initializeMemoizationTable(&context);
-    gramPolyCallCount = 0;
-    //printf("GramPoly call count before applying filter: %d\n", gramPolyCallCount);
-
-    SavitzkyGolayFilter* filter = getFilterInstance(halfWindowSize, polynomialOrder, targetPoint, derivativeOrder, false, &context);
-
-    ApplyFilter(data, dataSize, halfWindowSize, targetPoint, *filter, filteredData, &context);
+    initializeMemoizationTable();
+    //gramPolyCallCount = 0;
+    SavitzkyGolayFilter* filter = getFilterInstance(halfWindowSize, polynomialOrder, targetPoint, derivativeOrder, false);
+    
+    ApplyFilter(data, dataSize, halfWindowSize, targetPoint, *filter, filteredData);
 
     //printf("GramPoly call count after applying filter: %d\n", gramPolyCallCount);
-
 }
+
