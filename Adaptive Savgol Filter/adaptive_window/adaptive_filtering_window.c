@@ -27,11 +27,17 @@ typedef struct {
  * @param n The number of elements in the arrays.
  * @return The Pearson correlation coefficient.
  */
+#define SWEEP_SIZE 501 // ctx.len can be used instead. 
 double calculate_correlation(const MqsRawDataPoint_t* x, const MqsRawDataPoint_t* y, uint16_t peakIndex, uint16_t interval_size) {
     int half_range = interval_size / 2;
     int start = (peakIndex - half_range >= 0) ? peakIndex - half_range : 0;
-    int end = peakIndex + half_range;
-    //printf("start %d and end %d and peakIndex %d \n", start, end, peakIndex);
+    int end = (start + interval_size - 1 < SWEEP_SIZE) ? start + interval_size - 1 : SWEEP_SIZE - 1;
+    
+    // Adjust the start if the end exceeds the array length
+    if (end >= SWEEP_SIZE) {
+        end = SWEEP_SIZE - 1;
+        start = (end - interval_size + 1 >= 0) ? end - interval_size + 1 : 0;
+    }
 
     double sum_x = 0, sum_y = 0;
     for (int i = start; i <= end; ++i) {
@@ -86,7 +92,13 @@ static bool is_odd(int num) {
 double calculate_smoothness(const MqsRawDataPoint_t* data, uint16_t peakIndex, uint16_t interval_size) {
     int half_range = interval_size / 2;
     int start = (peakIndex - half_range >= 0) ? peakIndex - half_range : 0;
-    int end = peakIndex + half_range; //should be smaller than len. 
+    int end = (start + interval_size - 1 < SWEEP_SIZE) ? start + interval_size - 1 : SWEEP_SIZE - 1;
+    
+    // Adjust the start if the end exceeds the array length
+    if (end >= SWEEP_SIZE) {
+        end = SWEEP_SIZE - 1;
+        start = (end - interval_size + 1 >= 0) ? end - interval_size + 1 : 0;
+    }
 
     double smoothness = 0;
     for (int i = start + 1; i < end - 1; ++i) {
